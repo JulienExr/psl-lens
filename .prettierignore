@@ -1,0 +1,12 @@
+node_modules
+dist
+artifacts
+test-results
+test-results-pwa
+test-results-compat
+playwright-report
+public/wasm
+public/vision-worker.js
+src/vision/connections.json
+src/vision/canonical.json
+package-lock.json

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+artifacts/
+test-results/
+test-results-pwa/
+test-results-compat/
+.superpowers/
+*.local
+public/wasm/
+public/models/*.task
+public/vision-worker.js
+.DS_Store
