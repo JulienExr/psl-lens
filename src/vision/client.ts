@@ -1,5 +1,7 @@
 import type { FaceDetectionResult } from '../types';
 import type { RunningMode, VisionEngine } from './engine';
+import { abortable, isVisionCancellation, VisionCancellation } from './cancellation';
+import { RUNTIME_ASSETS } from './runtime-assets';
 
 type Reply = { id: number; ok: boolean; result?: FaceDetectionResult; error?: string };
 export class VisionClient {
@@ -20,14 +22,18 @@ export class VisionClient {
   get modeLabel() {
     return this.fallback ? 'CPU · cadence limitée' : 'Worker · traitement local';
   }
-  init(): Promise<void> {
+  init(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return Promise.reject(new VisionCancellation());
+    return abortable(this.initialize(), signal);
+  }
+  private initialize(): Promise<void> {
     if (this.initialization) return this.initialization;
     const generation = this.generation;
     this.initialization = (async () => {
       try {
         if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined')
           throw new Error('Worker indisponible');
-        const worker = new Worker('/vision-worker.js');
+        const worker = new Worker(RUNTIME_ASSETS.workerUrl);
         this.worker = worker;
         let initializing = true;
         worker.onmessage = ({ data }: MessageEvent<Reply>) => {
@@ -45,7 +51,11 @@ export class VisionClient {
           else
             this.dispose(new Error('Le moteur de vision a été interrompu. Réessayez l’analyse.'));
         };
-        await this.request({ type: 'init', origin: location.origin }, [], 45000);
+        await this.request(
+          { type: 'init', origin: location.origin, assetBase: RUNTIME_ASSETS.assetBase },
+          [],
+          45000,
+        );
         initializing = false;
       } catch (error) {
         if (generation !== this.generation) throw error;
@@ -55,7 +65,7 @@ export class VisionClient {
         if (generation !== this.generation) throw new Error('Session effacée.', { cause: error });
         const fallback = new VisionEngine();
         try {
-          await fallback.init(location.origin);
+          await fallback.init(location.origin, RUNTIME_ASSETS.assetBase);
         } catch (cause) {
           fallback.close();
           throw new Error(
@@ -106,7 +116,12 @@ export class VisionClient {
     bitmap: ImageBitmap,
     mode: RunningMode,
     timestamp: number,
+    signal?: AbortSignal,
   ): Promise<FaceDetectionResult> {
+    if (signal?.aborted) {
+      bitmap.close();
+      throw new VisionCancellation();
+    }
     if (this.activeOperation) {
       bitmap.close();
       throw new Error('Une analyse est déjà en cours.');
@@ -114,15 +129,36 @@ export class VisionClient {
     const operation = Symbol();
     const generation = this.generation;
     this.activeOperation = operation;
+    let started = false;
+    const cancelOwner = () => {
+      if (this.activeOperation !== operation) return;
+      // A worker inference cannot consume a cancellation message while WASM is
+      // synchronous. Terminate only its owning session, then allow a fresh one.
+      if (started) this.dispose(new VisionCancellation());
+      else this.activeOperation = null;
+    };
+    signal?.addEventListener('abort', cancelOwner, { once: true });
     try {
-      await this.init();
-      if (generation !== this.generation) throw new Error('Session effacée.');
-      if (this.fallback) return await this.fallback.detect(bitmap, mode, timestamp);
+      await this.init(signal);
+      if (signal?.aborted || generation !== this.generation || this.activeOperation !== operation)
+        throw new VisionCancellation();
+      started = true;
+      if (this.fallback) {
+        const result = await abortable(this.fallback.detect(bitmap, mode, timestamp), signal);
+        if (signal?.aborted || generation !== this.generation) throw new VisionCancellation();
+        return result;
+      }
       return (await this.request({ type: 'detect', bitmap, mode, timestamp }, [bitmap]))!;
     } catch (error) {
-      if (generation === this.generation) this.dispose();
+      if (
+        !isVisionCancellation(error) &&
+        generation === this.generation &&
+        this.activeOperation === operation
+      )
+        this.dispose();
       throw error;
     } finally {
+      signal?.removeEventListener('abort', cancelOwner);
       bitmap.close();
       if (this.activeOperation === operation) this.activeOperation = null;
     }
@@ -134,7 +170,7 @@ export class VisionClient {
     }
     this.pending.clear();
   }
-  dispose(reason = new Error('Session effacée.')) {
+  dispose(reason = new VisionCancellation()) {
     this.generation++;
     this.rejectPending(reason);
     this.activeOperation = null;

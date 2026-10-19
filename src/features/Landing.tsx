@@ -19,7 +19,7 @@ export function Landing() {
         <div className="hero-copy">
           <div className="eyebrow">
             <span className="status-dot" />
-            LIVE FACIAL ANALYSIS <span className="version">V1.0 · EXPERIMENTAL</span>
+            LIVE FACIAL ANALYSIS <span className="version">V1.1 · EXPERIMENTAL</span>
           </div>
           <h1>
             Votre visage.
@@ -209,8 +209,9 @@ export function Landing() {
           <details>
             <summary>Le score PSL est-il scientifique ?</summary>
             <p>
-              Non. Les sous-scores sont des hypothèses de conception subjectives. Le total reste
-              indisponible lorsque des composantes manquent, notamment le profil en V1.
+              Non. Le PSL frontal expérimental repose sur des cibles subjectives et peut être
+              masqué. Sa note exige des captures exploitables. Le PSL complet reste indisponible
+              tant que le profil n’est pas validé.
             </p>
           </details>
           <details>

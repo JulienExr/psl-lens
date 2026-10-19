@@ -4,6 +4,7 @@ import { openCamera, stopStream, cameraError } from '../vision/camera';
 import { visionClient } from '../vision/client';
 import { assessQuality } from '../vision/quality';
 import { measure } from '../morphometry/metrics';
+import { isVisionCancellation } from '../vision/cancellation';
 
 export function useCamera(onObservation?: (observation: ScanObservation) => void) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -11,6 +12,7 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
   const generation = useRef(0);
   const frame = useRef(0);
   const pausedRef = useRef(false);
+  const controller = useRef<AbortController | null>(null);
   const observerRef = useRef(onObservation);
   useEffect(() => {
     observerRef.current = onObservation;
@@ -24,6 +26,8 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
   const [deviceId, setDeviceId] = useState('');
   const stop = useCallback(() => {
     generation.current++;
+    controller.current?.abort();
+    controller.current = null;
     cancelAnimationFrame(frame.current);
     stopStream(stream.current);
     stream.current = null;
@@ -38,6 +42,8 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
     async (selectedDevice?: string) => {
       stop();
       const token = generation.current;
+      const session = new AbortController();
+      controller.current = session;
       setError('');
       setStatus('starting');
       let acquired: MediaStream | null = null;
@@ -67,7 +73,7 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
             setError('Le flux caméra a été interrompu. Réactivez la caméra.');
           }
         });
-        await visionClient.init();
+        await visionClient.init(session.signal);
         if (token !== generation.current) return;
         setStatus('active');
         let lastVideoTime = -1;
@@ -100,7 +106,12 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
                 bitmap.close();
                 return;
               }
-              const result = await visionClient.detect(bitmap, 'VIDEO', performance.now());
+              const result = await visionClient.detect(
+                bitmap,
+                'VIDEO',
+                performance.now(),
+                session.signal,
+              );
               if (token !== generation.current) return;
               if (!pausedRef.current) {
                 const q = assessQuality(result, result.pixels ?? null, previous);
@@ -115,7 +126,7 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
                 });
               }
             } catch (e) {
-              if (token === generation.current) {
+              if (token === generation.current && !isVisionCancellation(e)) {
                 stop();
                 setError(cameraError(e));
               }
@@ -130,7 +141,7 @@ export function useCamera(onObservation?: (observation: ScanObservation) => void
         void loop();
       } catch (e) {
         stopStream(acquired);
-        if (token === generation.current) {
+        if (token === generation.current && !isVisionCancellation(e)) {
           stop();
           setError(cameraError(e));
         }

@@ -78,7 +78,7 @@ describe('guided scan', () => {
     expect(repeated.accepted).toBe(1);
   });
   it('completes only with sufficient valid observations at all target poses', () => {
-    let state = initialScan();
+    let state = initialScan('multi-angle');
     let t = 0;
     for (const stage of SCAN_STAGES) {
       for (let n = 0; n < stage.required; n++) {

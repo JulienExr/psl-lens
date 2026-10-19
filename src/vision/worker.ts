@@ -5,6 +5,7 @@ self.onmessage = async (
     id: number;
     type: 'init' | 'detect';
     origin?: string;
+    assetBase?: string;
     bitmap?: ImageBitmap;
     mode?: RunningMode;
     timestamp?: number;
@@ -13,7 +14,7 @@ self.onmessage = async (
   const { id, type, bitmap } = event.data;
   try {
     if (type === 'init') {
-      await engine.init(event.data.origin!);
+      await engine.init(event.data.origin!, event.data.assetBase);
       self.postMessage({ id, ok: true });
     } else if (bitmap) {
       const result = await engine.detect(bitmap, event.data.mode!, event.data.timestamp!);

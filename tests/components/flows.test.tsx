@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from '../../src/app/App';
 import { Report } from '../../src/features/Report';
@@ -82,11 +82,79 @@ describe('honest partial report', () => {
         <Report analysis={report} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Score global indisponible')).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Afficher les sous-scores expérimentaux' }),
-    );
-    expect(screen.queryByText('Score global indisponible')).not.toBeInTheDocument();
+    expect(screen.getByText('PSL frontal expérimental /8')).toBeInTheDocument();
+    expect(screen.getByText('PSL complet : indisponible')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Afficher la notation esthétique' }));
+    expect(screen.queryByText('PSL frontal expérimental /8')).not.toBeInTheDocument();
     expect(screen.getByText('Largeur / hauteur du visage')).toBeInTheDocument();
   });
+});
+
+it('lets the report select the actual geometric construction for a measurement', () => {
+  const detection = fixtureDetection();
+  const analysis = aggregate(
+    [
+      {
+        detection,
+        quality: readyQuality,
+        measurements: measure(detection, readyQuality),
+        stage: 'front',
+      },
+    ],
+    'photo',
+  );
+  render(
+    <MemoryRouter>
+      <Report analysis={analysis} />
+    </MemoryRouter>,
+  );
+  fireEvent.click(
+    within(document.querySelector('.measurement-card') as HTMLElement).getByText(
+      'Largeur / hauteur du visage',
+    ),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Visualiser Largeur / hauteur du visage' }));
+  expect(screen.getByText('Construction sélectionnée')).toBeInTheDocument();
+  expect(
+    document.querySelector('.report-coordinate svg line[data-role="denominator"]'),
+  ).not.toBeNull();
+});
+
+it('keeps a dispersed report limited and does not draw a missing measurement', () => {
+  const detection = fixtureDetection();
+  const observation = {
+    detection,
+    quality: readyQuality,
+    measurements: measure(detection, readyQuality),
+    stage: 'front' as const,
+  };
+  const analysis = aggregate(
+    Array.from({ length: 6 }, () => observation),
+    'live',
+  );
+  analysis.measurements[0] = {
+    ...analysis.measurements[0],
+    value: null,
+    confidence: 'unavailable',
+    samples: 0,
+  };
+  analysis.measurements[1] = {
+    ...analysis.measurements[1],
+    confidence: 'low',
+    reliabilityReason: 'dispersion',
+  };
+  render(
+    <MemoryRouter>
+      <Report analysis={analysis} />
+    </MemoryRouter>,
+  );
+  expect(document.querySelector('.report-summary')).toHaveTextContent('Limitée');
+  fireEvent.click(
+    within(document.querySelector('.measurement-card') as HTMLElement).getByText(
+      'Largeur / hauteur du visage',
+    ),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Visualiser Largeur / hauteur du visage' }));
+  expect(document.querySelector('.report-coordinate svg')).toBeNull();
+  expect(screen.getByText('N/D')).toBeInTheDocument();
 });

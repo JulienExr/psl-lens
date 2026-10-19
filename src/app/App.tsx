@@ -9,6 +9,7 @@ import { Report } from '../features/Report';
 import { About } from '../features/About';
 import { visionClient } from '../vision/client';
 import { DISCLAIMER } from '../scoring';
+import { OfflineStatus } from '../components/OfflineStatus';
 
 export function App() {
   const [analysis, setAnalysis] = useState<AggregatedAnalysis | null>(null);
@@ -106,11 +107,12 @@ export function App() {
           </button>
         </div>
       )}
+      <OfflineStatus />
       <main id="main" key={session}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/live" element={<Live onReport={receiveReport} />} />
-          <Route path="/scan" element={<Live guided onReport={receiveReport} />} />
+          <Route path="/live" element={<Live key="live" onReport={receiveReport} />} />
+          <Route path="/scan" element={<Live key="guided" guided onReport={receiveReport} />} />
           <Route path="/photo" element={<Photo onReport={receiveReport} />} />
           <Route path="/report" element={<Report analysis={analysis} />} />
           <Route path="/about" element={<About />} />
@@ -138,7 +140,7 @@ export function App() {
           <span className="mono">BUILT FOR CURIOSITY. DESIGNED FOR PRIVACY.</span>
           <p>{DISCLAIMER}</p>
           <span className="small muted">
-            Pour adultes · V1.0 · Mesures apparentes, sans diagnostic.
+            Pour adultes · V1.1 · Mesures apparentes, sans diagnostic.
           </span>
         </div>
       </footer>

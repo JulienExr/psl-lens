@@ -6,7 +6,7 @@ export type RunningMode = 'IMAGE' | 'VIDEO';
 export class VisionEngine {
   private model: FaceLandmarker | null = null;
   private mode: RunningMode = 'IMAGE';
-  async init(origin: string) {
+  async init(origin: string, assetBase = '/') {
     // CPU inference still uses WebGL for MediaPipe image transport. Some WebKit
     // versions expose OffscreenCanvas but cannot create a WebGL context in workers.
     const canvas =
@@ -18,10 +18,11 @@ export class VisionEngine {
       throw new Error(
         'WebGL 2 est indisponible dans ce contexte. Essayez un navigateur récent avec l’accélération graphique activée.',
       );
-    const files = await FilesetResolver.forVisionTasks(`${origin}/wasm`);
+    const base = `${origin}${assetBase === '/' ? '' : assetBase.replace(/\/$/, '')}`;
+    const files = await FilesetResolver.forVisionTasks(`${base}/wasm`);
     this.model = await FaceLandmarker.createFromOptions(files, {
       canvas,
-      baseOptions: { modelAssetPath: `${origin}/models/face_landmarker.task`, delegate: 'CPU' },
+      baseOptions: { modelAssetPath: `${base}/models/face_landmarker.task`, delegate: 'CPU' },
       runningMode: 'IMAGE',
       numFaces: 2,
       minFaceDetectionConfidence: 0.5,

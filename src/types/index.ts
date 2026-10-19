@@ -25,6 +25,7 @@ export interface PixelQuality {
   sharpness: number;
 }
 export interface CaptureQuality {
+  neutralExpression?: boolean;
   valid: boolean;
   frontal: boolean;
   issues: string[];
@@ -50,6 +51,9 @@ export interface Measurement {
   reason?: string;
   spread?: number;
   samples?: number;
+  retention?: number;
+  rawSpread?: number;
+  reliabilityReason?: 'single-photo' | 'insufficient-samples' | 'dispersion' | 'outliers';
 }
 export interface ScanObservation {
   detection: FaceDetectionResult;
@@ -73,12 +77,31 @@ export interface PSLResult {
   missing: string[];
   disclaimer: string;
 }
+export interface FrontalPSLResult extends PSLResult {
+  reliability: 'limited' | 'moderate' | 'unavailable';
+  reasons: string[];
+}
+export type ScanMode = 'quick' | 'multi-angle';
+export interface ScanConsistency {
+  status: 'not-checked' | 'consistent' | 'inconsistent';
+  issues: string[];
+  checks: {
+    stage: 'left' | 'right';
+    sizeRatio: number;
+    lowerFaceRatio: number;
+    centerShift: number;
+    passed: boolean;
+  }[];
+}
 export interface AggregatedAnalysis {
   id: string;
   createdAt: string;
   source: 'photo' | 'live' | 'guided';
   measurements: Measurement[];
   score: PSLResult;
+  frontalScore: FrontalPSLResult;
+  scan?: { mode: ScanMode; consistency: ScanConsistency };
+  captureIssues?: string[];
   observationCount: number;
   morphometryCount: number;
   rejectedCount: number;

@@ -1,5 +1,13 @@
 import type { CaptureQuality, FaceDetectionResult, Measurement, Region } from '../types';
-import { angle, deroll, distance, ratio, type Point } from './geometry';
+import {
+  angle,
+  deroll,
+  distance,
+  hasFaceBaselines,
+  ratio,
+  reflectAcrossLine,
+  type Point,
+} from './geometry';
 
 type Definition = Omit<Measurement, 'value' | 'confidence'> & {
   calculate: (p: Point[]) => number | null;
@@ -85,11 +93,15 @@ export const definitions: Definition[] = [
   ),
   def(
     'brow-height',
-    'Hauteur relative des sourcils',
+    'Séparation verticale sourcils–paupières',
     'brows',
     [105, 159, 334, 386, 234, 454],
-    'moyenne(d(105,159),d(334,386)) / largeur visage',
-    (p) => ratio((d(p, 105, 159) + d(p, 334, 386)) / 2, w(p)),
+    'moyenne(y159−y105,y386−y334) / largeur visage, après dérotation',
+    (p) => {
+      const right = p[159].y - p[105].y;
+      const left = p[386].y - p[334].y;
+      return right > 1e-8 && left > 1e-8 ? ratio((right + left) / 2, w(p)) : null;
+    },
   ),
   def(
     'brow-spacing',
@@ -101,7 +113,7 @@ export const definitions: Definition[] = [
   ),
   def(
     'nose-width',
-    'Largeur relative du nez',
+    'Largeur basale apparente du nez',
     'nose',
     [98, 327, 234, 454],
     'd(98,327) / largeur visage',
@@ -121,7 +133,7 @@ export const definitions: Definition[] = [
     'mouth',
     [61, 291, 234, 454],
     'd(61,291) / largeur visage',
-    (p) => relative(p, 61, 291),
+    (p) => (d(p, 61, 291) > w(p) * 1e-4 ? relative(p, 61, 291) : null),
   ),
   def(
     'mouth-angle',
@@ -129,12 +141,12 @@ export const definitions: Definition[] = [
     'mouth',
     [61, 291],
     'atan2(y291−y61,x291−x61), corrigé du roulis des yeux',
-    (p) => angle(p[61], p[291]),
+    (p) => (d(p, 61, 291) > w(p) * 1e-4 ? angle(p[61], p[291]) : null),
     '°',
   ),
   def(
     'jaw-ratio',
-    'Largeur du contour mandibulaire',
+    'Largeur relative du contour inférieur',
     'jaw',
     [172, 397, 234, 454],
     'd(172,397) / largeur visage',
@@ -142,7 +154,7 @@ export const definitions: Definition[] = [
   ),
   def(
     'chin-ratio',
-    'Part apparente du menton',
+    'Distance lèvre inférieure–menton relative',
     'jaw',
     [17, 152, 10],
     'd(17,152) / hauteur visage',
@@ -155,16 +167,16 @@ export const definitions: Definition[] = [
     [10, 152, 33, 263, 133, 362, 61, 291, 172, 397, 234, 454],
     'moyenne(distance(point droit, reflet point gauche autour axe 10–152)) / largeur visage',
     (p) => {
-      const mid = (p[10].x + p[152].x) / 2;
       const pairs = [
         [33, 263],
         [133, 362],
         [61, 291],
         [172, 397],
       ];
+      const reflected = pairs.map(([, b]) => reflectAcrossLine(p[b], p[10], p[152]));
+      if (reflected.some((v) => v === null)) return null;
       return ratio(
-        pairs.reduce((sum, [a, b]) => sum + distance(p[a], { x: 2 * mid - p[b].x, y: p[b].y }), 0) /
-          pairs.length,
+        pairs.reduce((sum, [a], i) => sum + distance(p[a], reflected[i]!), 0) / pairs.length,
         w(p),
       );
     },
@@ -175,16 +187,27 @@ export function measure(result: FaceDetectionResult, quality: CaptureQuality): M
   const raw = result.faces[0] ?? [];
   const complete =
     result.faces.length === 1 &&
+    Number.isFinite(result.width) &&
     result.width > 0 &&
+    Number.isFinite(result.height) &&
     result.height > 0 &&
+    Number.isFinite(result.timestamp) &&
     raw.length >= 478 &&
-    raw.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    raw.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
   const points = complete
     ? raw.map((p) => ({ x: p.x * result.width, y: p.y * result.height }))
     : [];
-  const corrected = complete ? deroll(points, angle(points[33], points[263])) : [];
+  const geometryValid = complete && hasFaceBaselines(points);
+  const corrected = geometryValid ? deroll(points, angle(points[33], points[263])) : [];
+  const frontal =
+    result.pose.source === 'matrix' &&
+    [result.pose.yaw, result.pose.pitch, result.pose.roll].every(Number.isFinite) &&
+    Math.abs(result.pose.yaw) <= 12 &&
+    Math.abs(result.pose.pitch) <= 12 &&
+    Math.abs(result.pose.roll) <= 20;
   return definitions.map(({ calculate, ...definition }) => {
-    const value = complete && quality.valid && quality.frontal ? calculate(corrected) : null;
+    const value =
+      geometryValid && frontal && quality.valid && quality.frontal ? calculate(corrected) : null;
     const usable = value !== null && Number.isFinite(value);
     return {
       ...definition,
@@ -192,11 +215,12 @@ export function measure(result: FaceDetectionResult, quality: CaptureQuality): M
       confidence: usable ? 'moderate' : 'unavailable',
       reason: usable
         ? undefined
-        : !complete
+        : !geometryValid
           ? 'Repères absents, invalides ou plusieurs visages.'
-          : !quality.frontal
+          : !quality.frontal || !frontal
             ? 'Une vue frontale est nécessaire (rotation ≤ 12°).'
-            : quality.issues.join(' '),
+            : quality.issues.join(' ') ||
+              'Construction géométrique dégénérée ou repères incohérents.',
     };
   });
 }

@@ -15,8 +15,16 @@ gérée par le navigateur; aucune garantie d’effacement bas niveau n’est for
 
 Le fichier de profil facultatif est une prévisualisation en mémoire. L’export
 JSON est une action explicite qui écrit les mesures et éventuellement les
-sous-scores dans le dossier de téléchargement choisi. Il ne contient ni
+scores et métadonnées du scan dans le dossier de téléchargement choisi. Il ne contient ni
 photographie ni coordonnées faciales.
+
+Le bouton « Imprimer / PDF » ouvre le dialogue local du navigateur. Le choix
+de destination, les sauvegardes et le spool d’impression relèvent du navigateur
+et du système. Une photo importée visible peut être incluse dans l’impression;
+la décocher pour l’exclure. Aucune capture Live représentative n’est conservée
+en V1.1 : le rapport Live montre uniquement les repères de l’observation retenue.
+Cette option secondaire est reportée; elle nécessiterait une action de
+consentement et un effacement en mémoire testés.
 
 ## Réseau
 
@@ -39,9 +47,13 @@ Le serveur de développement a sa connexion HMR; elle n’existe pas dans le bui
 Le service worker est enregistré seulement en production. Le cache est une
 liste explicite des fichiers du build, de même origine; aucune requête arbitraire,
 blob, data URL, photo, vidéo ou réponse d’analyse n’est enregistrée. Cache
-versionné par empreinte de contenu, environ 43 Mio avec tous les WASM du SDK.
+versionné par empreinte de contenu. L’interface est précachée; le moteur est
+mis en cache progressivement, avec la seule variante WASM utilisée. Voir
+[les tailles et mises à jour](pwa-v1.1.md).
 Les anciens caches de l’application sont supprimés à l’activation de la
-nouvelle version, après fermeture des onglets de l’ancienne.
+nouvelle version, après fermeture des onglets de l’ancienne ou activation
+explicite. L’onglet qui choisit la mise à jour est rechargé et perd sa session
+en mémoire; les autres onglets proposent leur propre rechargement.
 
 « Effacer la session » efface les données faciales mais conserve les assets
 techniques. Le navigateur permet de supprimer ces derniers via les données du

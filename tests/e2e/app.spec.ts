@@ -11,7 +11,7 @@ test('navigation, responsive layouts and accessible camera permission boundary',
   await page.getByRole('link', { name: 'Start Live Scan' }).click();
   await expect(page.getByRole('button', { name: 'Activer la caméra' })).toBeVisible();
   expect(await page.locator('video').evaluate((v) => (v as HTMLVideoElement).srcObject)).toBeNull();
-  for (const width of [320, 390, 768, 1440]) {
+  for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const route of ['/', '/live', '/photo', '/scan', '/report', '/about']) {
       await page.goto(route);
@@ -56,12 +56,16 @@ test('real local MediaPipe photo → measures → export → erase; no remote re
   expect(overlay.width).toBeLessThan(1);
   expect(overlay.height).toBeLessThan(1);
   await page.getByRole('button', { name: 'Découvrir mon rapport' }).click();
-  await expect(page.getByText('Score global indisponible')).toBeVisible();
+  await expect(page.getByText('PSL complet : indisponible')).toBeVisible();
+  // This real portrait is descriptive-ready but exceeds the stricter ±8°
+  // scoring pose gate. Do not weaken the protocol to manufacture a score.
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText('—');
+  await expect(page.getByText(/Pose trop oblique ou inconnue/)).toBeVisible();
   await expect(page.locator('.measurement-card')).toHaveCount(15);
   await page.getByRole('button', { name: 'Yeux', exact: true }).click();
   await expect(page.locator('.measurement-card')).toHaveCount(4);
-  await page.getByRole('checkbox', { name: 'Afficher les sous-scores expérimentaux' }).uncheck();
-  await expect(page.getByText('Score global indisponible')).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'Afficher la notation esthétique' }).uncheck();
+  await expect(page.getByText('PSL complet : indisponible')).toHaveCount(0);
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exporter les mesures' }).click();
   const download = await downloadEvent;
@@ -176,13 +180,14 @@ test('guided scan uses actual quality/state/measurement engines with a test-only
     }),
   );
   await page.goto('/scan');
+  await page.getByRole('button', { name: 'Multi-Angle Scan', exact: true }).click();
   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '0');
   await page.getByRole('button', { name: 'Recommencer le scan' }).click();
   await page.getByRole('button', { name: 'Activer la caméra' }).click();
   await expect(page).toHaveURL(/\/report$/, { timeout: 30000 });
   await expect(page.locator('.report-summary')).toContainText('32');
   await expect(page.locator('.report-summary')).toContainText('16');
-  await expect(page.getByText('Score global indisponible')).toBeVisible();
+  await expect(page.getByText('PSL complet : indisponible')).toBeVisible();
   await expect(page.locator('.measurement-card')).toHaveCount(15);
 });
 
@@ -208,7 +213,8 @@ test('real face frames through a canvas camera stream produce a Live report', as
   await page.getByRole('button', { name: 'Activer la caméra' }).click();
   await expect(page.getByText('Visage détecté', { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(page.getByRole('button', { name: 'Créer mon rapport' })).toBeEnabled();
-  expect(await page.locator('.media-coordinate svg line').count()).toBeGreaterThan(1000);
+  await expect(page.locator('.media-coordinate canvas')).toBeVisible();
+  expect(await page.locator('.media-coordinate svg').count()).toBe(0);
   await page.getByRole('button', { name: 'Créer mon rapport' }).click();
   await expect(page.locator('.measurement-card')).toHaveCount(15);
   await expect(page.locator('.page-heading')).toContainText('Rapport Live');
@@ -240,4 +246,34 @@ test('pausing ignores a guided observation that was already in flight', async ({
   // Deliberate delay: wait beyond the known test-only worker response time.
   await page.waitForTimeout(900);
   await expect(page.getByRole('progressbar')).toHaveAttribute('value', '0');
+});
+
+test('single frontal photo and Quick Scan expose separate limited and stabilized scores', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['camera']);
+  const fixture = fixtureDetection();
+  await page.route('**/vision-worker.js', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: `const base=${JSON.stringify(fixture)};self.onmessage=e=>{const d=e.data;if(d.type==='init'){self.postMessage({id:d.id,ok:true});return;}d.bitmap.close();self.postMessage({id:d.id,ok:true,result:{...base,timestamp:d.timestamp,pixels:{brightness:130,sharpness:80}}});};`,
+    }),
+  );
+  await page.goto('/photo');
+  await page.getByLabel('Photo de face', { exact: true }).setInputFiles(portrait);
+  await page.getByRole('button', { name: 'Découvrir mon rapport' }).click();
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
+  await expect(page.getByText('Fiabilité limitée · photo unique')).toBeVisible();
+  await page.getByRole('link', { name: 'Commencer', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Quick Scan', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Activer la caméra' }).click();
+  await expect(page).toHaveURL(/\/report$/, { timeout: 30000 });
+  await expect(page.locator('.report-summary')).toContainText('16');
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
+  await expect(page.getByText('Fiabilité descriptive modérée · série stabilisée')).toBeVisible();
+  await expect(page.getByText('PSL complet : indisponible')).toBeVisible();
 });

@@ -10,6 +10,8 @@ npm test
 npx playwright install chromium
 npm run test:e2e
 npm run test:pwa
+npm run test:pwa-update
+npm run test:performance
 npx playwright install firefox webkit
 npm run test:compat
 npm run format:check
@@ -45,7 +47,7 @@ n’effectue un déploiement ou un push.
 
 ### Playwright Chromium
 
-1. Navigation et absence de débordement horizontal sur 320, 390, 768 et 1440 px.
+1. Navigation et absence de débordement horizontal sur 320, 390, 768, 1024 et 1440 px.
 2. Vraie photo → vrai worker MediaPipe → mesures → rapport → export → effacement.
    Les boîtes du SVG et de l’image sont comparées pour déceler les décalages.
    Toutes les requêtes sont de même origine et GET pendant ce parcours.
@@ -62,6 +64,31 @@ n’effectue un déploiement ou un push.
 8. Pause pendant une inférence retardée : l’observation en vol est ignorée.
 9. Build de production : CSP fourni appliqué au document, vraie détection,
    inspection de la liste du cache, puis rechargement et analyse hors connexion.
+10. Annulation en pleine inférence, stop/start immédiat, périphérique changé,
+    navigation Live → Photo et Live → Scan, effacement pendant initialisation,
+    reprise après panne worker : anciennes pistes arrêtées, nouvelle session
+    préservée, absence d’alerte pour une annulation volontaire.
+11. Effacement réel des pixels Canvas après arrêt et changement de couche.
+12. Photo frontale synthétique de test : score limité; Quick Scan par défaut :
+    16 observations, score stabilisé. Le portrait réel de test dépasse ±8° et
+    garde une note refusée, sans suppression des mesures descriptives.
+13. Sources vidéo synthétiques portrait et paysage, cinq largeurs et changement
+    d’orientation du viewport : rapport d’aspect source, boîtes et miroir
+    communs au Canvas et à la vidéo. Ceci ne simule pas un capteur physique.
+
+La suite PWA de mise à jour utilise le véritable générateur de service worker,
+de petits assets synthétiques et un serveur temporaire A/B. Elle vérifie le
+cache progressif, les erreurs de téléchargement, l’activation explicite, l’absence de
+mélange de révisions et le remplacement sans conservation d’anciens assets.
+Le composant réel du bandeau de mise à jour est exercé avec deux onglets.
+
+Le benchmark `test:performance` compare les composants réels Mesh et LiveMesh
+sur les mêmes 240 frames synthétiques, avec 20 échauffements par passage et un
+ordre alterné SVG/Canvas/Canvas/SVG. Il mesure l’actualisation CPU et le layout
+forcé sous Chromium, en build de développement; ni l’inférence, ni le temps GPU,
+ni un appareil mobile ne sont inclus. Les résultats sont dans
+`artifacts/overlay-performance.json` (ignoré). Aucune assertion de vitesse
+fragile : seules l’exécution et la réduction des nœuds DOM sont exigées.
 
 ### Firefox et WebKit
 
@@ -109,3 +136,6 @@ débranchement, changement de périphérique, caméra arrière, portrait/paysage
 miroir, pause/reprise, navigation durant chargement/inférence, effacement,
 lunettes/cheveux, image EXIF tournée, très grande image, luminosité extrême,
 expression non neutre et update PWA après fermeture des anciens onglets.
+
+La grille détaillée et son statut sont dans [la checklist physique](mobile-checklist.md).
+Le bilan chiffré des validations V1.1 est dans [le suivi](v1.1-progress.md).

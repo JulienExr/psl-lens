@@ -10,7 +10,7 @@ test('real local photo inference and report on an alternate browser engine', asy
   ).toBeVisible();
   await page.getByRole('button', { name: 'Découvrir mon rapport' }).click();
   await expect(page.locator('.measurement-card')).toHaveCount(15);
-  await expect(page.getByText('Score global indisponible')).toBeVisible();
+  await expect(page.getByText('PSL complet : indisponible')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

@@ -1,4 +1,5 @@
 import type { Measurement, PSLResult } from '../types';
+export { scoreFrontal } from './frontal';
 export const DISCLAIMER = 'Experimental PSL estimate — not a scientific beauty rating.';
 export interface ScoreConfig {
   version: string;

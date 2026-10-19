@@ -1,4 +1,4 @@
-# PSL Lens
+# PSL Lens V1.1
 
 **Live Facial Analysis · See your face differently.**
 
@@ -35,14 +35,17 @@ Lucide et `@mediapipe/tasks-vision`. Les versions exactes sont verrouillées dan
   microphone. Choisir le périphérique, activer/désactiver le miroir, changer de
   couche et sélectionner une région. Pause suspend l’inférence; Arrêter coupe
   la caméra. Cinq observations frontales valides permettent de créer le rapport.
-- **Scan guidé** : suivre les consignes frontales puis gauche/droite. Le scan
-  requiert 16 observations frontales consécutives puis 8 pour chaque rotation
-  légère. Un mouvement ou une capture invalide remet à zéro la série en cours.
-  La progression dépend des détections réelles. Les vues tournées ne sont pas
-  mélangées aux mesures frontales.
+- **Quick Scan** (par défaut) : 16 observations frontales stabilisées.
+  **Multi-Angle Scan**, facultatif : ajoute 8 observations par rotation légère
+  pour contrôler pose, taille, cadrage et continuité d’une proportion verticale.
+  Les vues tournées ne corrigent pas les ratios frontaux et ne reconstruisent
+  pas la 3D. Une capture incohérente refuse la note. Une capture invalide remet
+  à zéro la série en cours; la progression dépend des détections réelles.
 - **Rapport** : explorer les régions, ouvrir une mesure pour consulter sa
-  formule, les indices et la dispersion, masquer les sous-scores et exporter
-  les mesures JSON. L’export volontaire ne contient ni photographie ni landmarks.
+  formule, les indices, la construction géométrique, les effectifs, la rétention
+  et la dispersion. Masquer la notation esthétique, exporter les mesures JSON
+  ou imprimer/enregistrer en PDF via le navigateur. Aucun export automatique.
+  Le JSON volontaire ne contient ni photographie ni landmarks.
 - **Effacer la session** : l’icône corbeille libère les résultats et le moteur,
   arrête le studio actif et remet les vues à zéro. Le rechargement efface aussi
   les données de session.
@@ -53,11 +56,18 @@ Les ratios et angles sont calculés à partir de coordonnées en pixels, après
 correction du roulis par la ligne des yeux. Ce sont des mesures **apparentes 2D**,
 sans dimensions physiques et sans reconstruction osseuse.
 
-Le scoring `psl-heuristic-1.0.0` est déterministe, inspectable et configurable
-dans `src/scoring/index.ts`. Ses cibles sont des hypothèses de conception.
-**La projection du profil n’est pas validée en V1 : le total sur 8 est donc
-indisponible.** Les quatre catégories mesurables peuvent afficher leurs
-sous-scores. Aucun poids manquant n’est silencieusement redistribué.
+Le nouveau **`psl-frontal-1.0.0`** produit une note frontale expérimentale sur 8
+si ses 7 mesures requises, la pose (±8°), l’expression et la qualité sont
+exploitables. Pondérations propres : proportions 30 %, yeux 25 %, symétrie
+apparente 20 %, contour inférieur/menton 25 %. Une photo unique peut produire
+une note de **fiabilité limitée**; une série exige au moins 5 valeurs retenues,
+75 % de rétention et une faible dispersion pour chaque entrée obligatoire.
+Les seuils et les cibles sont des hypothèses subjectives, sans validation
+scientifique d’attractivité ni percentile. Voir [le protocole](docs/scoring.md).
+
+Le protocole historique `psl-heuristic-1.0.0` reste séparé. **PSL complet :
+indisponible**, car la projection du profil n’est pas validée. Aucun poids
+manquant n’est silencieusement redistribué.
 
 > Experimental PSL estimate — not a scientific beauty rating.
 
@@ -72,7 +82,10 @@ npm run test:e2e
 npx playwright install firefox webkit
 npm run test:compat
 npm run test:pwa
+npm run test:pwa-update
+npm run test:performance
 npm run build
+npm run format:check
 npm run preview
 ```
 
@@ -92,15 +105,20 @@ Pour Cloudflare Pages : commande `npm run build`, sortie `dist`, Node 22.12+.
 de sécurité. La caméra requiert HTTPS en production. Aucun déploiement ni push
 n’est effectué par les scripts de ce projet.
 
-La PWA peut être installée selon le navigateur. Le cache statique complet
-représente environ 43 Mio (notamment les variantes WASM du SDK). Les nouvelles
-versions s’activent après fermeture des onglets précédents. Ne pas promettre un
-premier démarrage hors connexion : les assets doivent avoir été téléchargés.
+La PWA installe d’abord la petite interface. Le moteur et la variante WASM utile
+sont mis en cache progressivement pendant leur utilisation. L’indicateur
+« Analyse hors connexion prête » confirme leur présence dans le cache; la
+première visite exige une connexion. Les fichiers du moteur ont des chemins
+immuables par empreinte. Tailles et contraintes de mise à jour :
+[audit PWA](docs/pwa-v1.1.md).
+
+La CI GitHub Actions vérifie le code, Chromium, les mises à jour PWA et les
+moteurs Firefox/WebKit, sans déploiement automatique.
 
 ## Limites connues
 
 - Profil à 90°, projection nasale/mentonnière et mesures osseuses indisponibles.
-- Aucun score global en V1, par construction du protocole complet.
+- Le score frontal est une heuristique subjective. Le score complet reste absent.
 - Pose approximative, sensibles à la perspective, l’expression, aux lunettes,
   cheveux et occlusions. Les occlusions ne sont pas toutes détectables.
 - Seuils de qualité empiriques, sans calibration démographique ou clinique.
@@ -122,6 +140,8 @@ premier démarrage hors connexion : les assets doivent avoir été téléchargé
 - [Scoring expérimental](docs/scoring.md)
 - [Confidentialité et réseau](docs/privacy.md)
 - [Tests et validation](docs/testing.md)
+- [Bilan V1.1, résultats et limites](docs/v1.1-progress.md)
+- [Checklist Android/iOS](docs/mobile-checklist.md)
 - [Licences et attribution](THIRD_PARTY_NOTICES.md)
 
 Les sources sont réparties entre `src/features` (parcours), `src/components`

@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
-  testIgnore: ['pwa.spec.ts', 'compat.spec.ts'],
+  testIgnore: ['pwa.spec.ts', 'compat.spec.ts', 'pwa-update.spec.ts', 'performance.spec.ts'],
   fullyParallel: false,
   timeout: 90000,
   expect: { timeout: 15000 },
