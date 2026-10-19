@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 import path from 'node:path';
 test('real local photo inference and report on an alternate browser engine', async ({ page }) => {
   await page.goto('/photo');
+  expect(
+    await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2'))),
+    'The test browser needs real WebGL2 image transport even for MediaPipe CPU inference',
+  ).toBe(true);
   await page
     .getByLabel('Photo de face', { exact: true })
     .setInputFiles(path.resolve('tests/fixtures/einstein.jpg'));

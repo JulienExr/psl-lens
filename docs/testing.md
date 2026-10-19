@@ -98,6 +98,14 @@ le repli principal lorsque WebGL n’est pas disponible dans OffscreenCanvas
 au sein du worker. La disponibilité d’OffscreenCanvas seule ne suffit pas : le
 contexte WebGL 2 est vérifié avant l’initialisation du modèle.
 
+Firefox sur un runner GitHub sans GPU refusait WebGL2 (`AllowWebgl2:false`),
+alors que le même parcours passait localement. Le projet Playwright Firefox en
+CI autorise explicitement WebGL via `webgl.force-enabled`, pour utiliser le
+rendu logiciel disponible, sans remplacer le moteur ni modifier les contrôles
+de production. Le test vérifie WebGL2 avant l’inférence pour rendre ce défaut
+d’infrastructure immédiatement visible. Contexte :
+[rapport Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1970486).
+
 Les mocks ne remplacent jamais le moteur dans le produit. Les fixtures sont
 sous `tests/`, sans import depuis `src/`. L’image historique est attribuée dans
 `THIRD_PARTY_NOTICES.md`; aucun visage privé n’est nécessaire aux tests.
