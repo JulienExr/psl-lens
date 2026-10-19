@@ -6,9 +6,10 @@ import { decodePhoto } from '../vision/photo';
 import { visionClient } from '../vision/client';
 import { assessQuality } from '../vision/quality';
 import { aggregate } from '../vision/temporal';
-import { measure } from '../morphometry/metrics';
+import { definitions, measure } from '../morphometry/metrics';
 import { Mesh, type Layer } from '../components/Mesh';
 import { LayerControls, Loading, LocalNotice } from '../components/Controls';
+import { isVisionCancellation } from '../vision/cancellation';
 
 export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void }) {
   const [preview, setPreview] = useState('');
@@ -20,17 +21,22 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
   const [error, setError] = useState('');
   const [layer, setLayer] = useState<Layer>('mesh');
   const [region, setRegion] = useState<Region>('all');
+  const [measurementId, setMeasurementId] = useState('face-ratio');
   const [dragging, setDragging] = useState(false);
   const generation = useRef(0);
+  const controller = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
       generation.current++;
+      controller.current?.abort();
     },
     [],
   );
   const load = async (file?: File, isProfile = false) => {
     if (!file || busy) return;
     const token = ++generation.current;
+    const session = new AbortController();
+    controller.current = session;
     setBusy(true);
     setError('');
     setMessage('Vérification de l’image…');
@@ -50,7 +56,12 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
       }
       setPreview(decoded.preview);
       setMessage('Chargement du modèle et détection locale…');
-      const detection = await visionClient.detect(bitmap, 'IMAGE', performance.now());
+      const detection = await visionClient.detect(
+        bitmap,
+        'IMAGE',
+        performance.now(),
+        session.signal,
+      );
       if (token !== generation.current) return;
       const q = assessQuality(detection, detection.pixels ?? null);
       setResult(detection);
@@ -62,7 +73,7 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
             : 'Choisissez une photo de face : rotation et inclinaison inférieures à 12°.',
         );
     } catch (e) {
-      if (token === generation.current)
+      if (token === generation.current && !isVisionCancellation(e))
         setError(e instanceof Error ? e.message : 'Impossible de lire cette image.');
     } finally {
       bitmap?.close();
@@ -134,7 +145,7 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
                 }
               >
                 <img src={preview} alt="Votre photo frontale, conservée en mémoire" />
-                <Mesh result={result} layer={layer} region={region} />
+                <Mesh result={result} layer={layer} region={region} measurementId={measurementId} />
               </div>
             ) : (
               <div className="upload-empty">
@@ -174,7 +185,32 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
             </div>
           )}
           {result && (
-            <LayerControls layer={layer} onLayer={setLayer} region={region} onRegion={setRegion} />
+            <LayerControls
+              layer={layer}
+              onLayer={setLayer}
+              region={region}
+              onRegion={(next) => {
+                setRegion(next);
+                setMeasurementId(definitions.find((m) => next === 'all' || m.region === next)!.id);
+              }}
+            />
+          )}
+          {result && layer === 'measurements' && (
+            <div className="measurement-selector">
+              <label className="select-label">
+                Construction géométrique
+                <select value={measurementId} onChange={(e) => setMeasurementId(e.target.value)}>
+                  {definitions
+                    .filter((m) => region === 'all' || m.region === region)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p>{definitions.find((m) => m.id === measurementId)?.formula}</p>
+            </div>
           )}
           {quality?.valid && quality.frontal && (
             <div role="status" className="success-message">

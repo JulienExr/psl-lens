@@ -2669,3 +2669,305 @@ progress::-moz-progress-bar {
     scroll-behavior: auto !important;
   }
 }
+
+/* V1.1: retain the existing studio identity while exposing measured evidence. */
+.scan-mode-choice {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.scan-mode-choice button {
+  flex: 1;
+  background: #0a1321;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  min-height: 42px;
+  padding: 8px;
+}
+.scan-mode-choice button[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: #6ae7d74a;
+  background: #6ae7d709;
+}
+.measurement-selector {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+.measurement-selector select {
+  max-width: 100%;
+  width: 100%;
+  font-size: 11px;
+}
+.measurement-selector p {
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}
+.performance-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 0 16px 16px;
+  color: #8da8ad;
+  font-size: 8px;
+}
+.frontal-score {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  margin-top: 22px;
+}
+.frontal-score .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.frontal-score-value {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 18px 0 12px;
+}
+.frontal-score-value output {
+  font-size: 64px;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: var(--accent);
+  font-weight: 400;
+}
+.frontal-score-value > span {
+  font-size: 20px;
+  color: var(--muted);
+}
+.score-reliability {
+  font-size: 11px;
+  margin-bottom: 12px;
+  color: #a5c8c2;
+}
+.score-reasons {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.9;
+  padding-left: 17px;
+}
+.complete-score-notice {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+.complete-score-notice h3 {
+  font-size: 14px;
+}
+.complete-score-notice p {
+  font-size: 10px;
+  margin-bottom: 0;
+}
+.selected-construction {
+  padding: 18px;
+  border-top: 1px solid var(--border);
+}
+.selected-construction .eyebrow {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+.selected-construction h3 {
+  font-size: 16px;
+  margin: 12px 0;
+}
+.selected-construction p {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.selected-construction p.mono {
+  font-size: 23px;
+  color: var(--accent);
+}
+.photo-visibility {
+  padding: 15px 17px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.photo-visibility input {
+  accent-color: var(--accent);
+}
+.measurement-card.selected {
+  border-color: #6ae7d75a;
+}
+.measurement-detail > button {
+  margin-bottom: 12px;
+  font-size: 10px;
+}
+.consistency-panel {
+  margin-bottom: 24px;
+}
+.consistency-panel p,
+.consistency-panel li {
+  font-size: 11px;
+}
+.consistency-panel ul {
+  padding-left: 16px;
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.9;
+}
+.consistency-issue {
+  color: #e3b97f;
+}
+.offline-status {
+  padding: 7px 18px;
+  text-align: center;
+  color: #8ab8af;
+  border-bottom: 1px solid var(--border);
+  font-size: 9px;
+  background: #6ae7d705;
+}
+.print-action {
+  margin-left: 8px;
+}
+.report-coordinate svg text {
+  font-family: Consolas, monospace;
+  fill: currentColor;
+}
+@media (max-width: 600px) {
+  .frontal-score-value output {
+    font-size: 55px;
+  }
+  .performance-readout {
+    font-size: 7px;
+    gap: 10px;
+    line-height: 1.7;
+  }
+  .selected-construction {
+    padding: 18px;
+  }
+  .print-action {
+    margin-left: 0;
+  }
+  .report-aside > .panel:not(.report-mesh) {
+    display: block;
+  }
+  .page-heading > .button {
+    margin-right: 8px;
+  }
+  .consistency-panel {
+    padding: 20px;
+  }
+  .scan-mode-choice button {
+    min-height: 44px;
+  }
+  .measurement-selector select {
+    min-height: 44px;
+  }
+}
+@media print {
+  :root {
+    color-scheme: light;
+    background: white;
+    color: #152232;
+  }
+  body {
+    background: white;
+    color: #152232;
+  }
+  .site-header,
+  .site-footer,
+  .local-notice,
+  .offline-status,
+  .score-toggle,
+  .print-action,
+  .page-heading > button,
+  .region-tabs,
+  .text-link,
+  .skip-link,
+  .photo-visibility,
+  .session-notice {
+    display: none !important;
+  }
+  .page-width {
+    width: 100%;
+    max-width: none;
+  }
+  .workspace {
+    padding: 0;
+  }
+  .report-summary,
+  .panel,
+  .measurement-card {
+    background: white !important;
+    border-color: #cdd5d7 !important;
+    color: #152232 !important;
+    break-inside: avoid;
+  }
+  .report-layout {
+    display: block;
+  }
+  .report-aside {
+    display: block;
+    width: 45%;
+    margin: 20px 0;
+  }
+  .report-aside > .panel:not(.report-mesh) {
+    display: block;
+  }
+  .report-coordinate {
+    background: #0a0f1c !important;
+    print-color-adjust: exact;
+  }
+  .report-content {
+    width: 100%;
+  }
+  .measurement-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .measurement-card summary,
+  .measurement-value,
+  .measurement-label,
+  .measurement-detail dd,
+  .limitations h3,
+  .complete-score-notice h3 {
+    color: #152232 !important;
+  }
+  .measurement-detail {
+    display: block !important;
+  }
+  .score-categories details {
+    break-inside: avoid;
+  }
+  .frontal-score-value output,
+  .score-categories summary strong {
+    color: #155b54;
+  }
+  .report-summary .summary-word {
+    color: #155b54;
+  }
+  .measure-meta,
+  .measure-meta > span,
+  .score-disclaimer,
+  p,
+  .small,
+  .muted {
+    color: #3c505b !important;
+  }
+  .report-summary .mono {
+    color: #3c505b;
+  }
+  .frontal-score-value output {
+    font-size: 42px;
+  }
+  .limitations {
+    break-inside: avoid;
+  }
+  .report-mesh {
+    break-inside: avoid;
+  }
+  .performance-readout {
+    display: none;
+  }
+}

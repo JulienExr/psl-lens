@@ -13,6 +13,38 @@ export function deroll(points: Point[], degrees: number): Point[] {
     y: p.x * Math.sin(r) + p.y * Math.cos(r),
   }));
 }
+export function reflectAcrossLine(point: Point, a: Point, b: Point): Point | null {
+  if (![point.x, point.y, a.x, a.y, b.x, b.y].every(Number.isFinite)) return null;
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length2 = dx * dx + dy * dy;
+  if (length2 <= 1e-16) return null;
+  const t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / length2;
+  return { x: 2 * (a.x + t * dx) - point.x, y: 2 * (a.y + t * dy) - point.y };
+}
+
+// Essential surface baselines, in the same coordinate system as the supplied points.
+export function hasFaceBaselines(points: Point[]): boolean {
+  if (points.length < 478) return false;
+  const pairs = [
+    [234, 454],
+    [10, 152],
+    [33, 263],
+    [33, 133],
+    [263, 362],
+  ];
+  const lengths = pairs.map(([a, b]) => distance(points[a], points[b]));
+  const reference = Math.max(lengths[0], lengths[1]);
+  if (!lengths.every((v) => Number.isFinite(v) && v > Math.max(1e-8, reference * 1e-4)))
+    return false;
+  const a = points[33],
+    b = points[263];
+  const projection = (p: Point) =>
+    ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / lengths[2] ** 2;
+  const innerRight = projection(points[133]),
+    innerLeft = projection(points[362]);
+  return innerRight > 1e-4 && innerLeft > innerRight + 1e-4 && innerLeft < 1 - 1e-4;
+}
 export function median(values: number[]): number {
   const s = [...values].sort((a, b) => a - b);
   const n = s.length;

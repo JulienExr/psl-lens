@@ -1,5 +1,5 @@
 import type { CaptureQuality, FaceDetectionResult, FacePose, PixelQuality } from '../types';
-import { distance } from '../morphometry/geometry';
+import { distance, hasFaceBaselines } from '../morphometry/geometry';
 
 export function poseFromMatrix(m: number[]): FacePose {
   if (m.length !== 16 || !m.every(Number.isFinite))
@@ -9,6 +9,29 @@ export function poseFromMatrix(m: number[]): FacePose {
   const sy = Math.hypot(m[4], m[5], m[6]);
   const sz = Math.hypot(m[8], m[9], m[10]);
   if (Math.min(sx, sy, sz) < 1e-6) return { yaw: 0, pitch: 0, roll: 0, source: 'unavailable' };
+  const cols = [
+    [m[0] / sx, m[1] / sx, m[2] / sx],
+    [m[4] / sy, m[5] / sy, m[6] / sy],
+    [m[8] / sz, m[9] / sz, m[10] / sz],
+  ];
+  const dot = (a: number[], b: number[]) => a.reduce((sum, v, i) => sum + v * b[i], 0);
+  const determinant =
+    cols[0][0] * (cols[1][1] * cols[2][2] - cols[1][2] * cols[2][1]) -
+    cols[1][0] * (cols[0][1] * cols[2][2] - cols[0][2] * cols[2][1]) +
+    cols[2][0] * (cols[0][1] * cols[1][2] - cols[0][2] * cols[1][1]);
+  if (
+    Math.max(
+      Math.abs(dot(cols[0], cols[1])),
+      Math.abs(dot(cols[0], cols[2])),
+      Math.abs(dot(cols[1], cols[2])),
+    ) > 0.02 ||
+    Math.abs(determinant - 1) > 0.02 ||
+    Math.abs(m[3]) > 1e-6 ||
+    Math.abs(m[7]) > 1e-6 ||
+    Math.abs(m[11]) > 1e-6 ||
+    Math.abs(m[15] - 1) > 1e-6
+  )
+    return { yaw: 0, pitch: 0, roll: 0, source: 'unavailable' };
   const deg = 180 / Math.PI;
   return {
     yaw: Math.asin(Math.max(-1, Math.min(1, -m[2] / sx))) * deg || 0,
@@ -53,11 +76,16 @@ export function assessQuality(
     faceSize: 0,
     stability: null,
     frontal: false,
+    neutralExpression: false,
   };
   if (
     result.faces.length !== 1 ||
     points.length < 478 ||
-    points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))
+    points.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) ||
+    ![result.width, result.height, result.timestamp].every(Number.isFinite) ||
+    result.width <= 0 ||
+    result.height <= 0 ||
+    !hasFaceBaselines(points.map((p) => ({ x: p.x * result.width, y: p.y * result.height })))
   ) {
     return {
       ...base,
@@ -80,20 +108,38 @@ export function assessQuality(
   if (faceSize < 0.28) issues.push('Rapprochez-vous : le visage est trop petit.');
   if (minX < 0.025 || maxX > 0.975 || minY < 0.025 || maxY > 0.975)
     issues.push('Gardez tout le visage dans le cadre.');
-  if (result.pose.source === 'unavailable') issues.push('Orientation du visage indisponible.');
+  const poseAvailable =
+    result.pose.source === 'matrix' &&
+    [result.pose.yaw, result.pose.pitch, result.pose.roll].every(Number.isFinite);
+  if (!poseAvailable) issues.push('Orientation du visage indisponible.');
   if (
     Math.abs(result.pose.yaw) > 35 ||
     Math.abs(result.pose.pitch) > 15 ||
     Math.abs(result.pose.roll) > 20
   )
     issues.push('Redressez la tête et limitez la rotation.');
-  if (!pixels) issues.push('Qualité lumineuse et netteté non vérifiées.');
+  if (!pixels || ![pixels.brightness, pixels.sharpness].every(Number.isFinite))
+    issues.push('Qualité lumineuse et netteté non vérifiées.');
   else {
     if (pixels.brightness < 45) issues.push('Ajoutez une lumière douce devant le visage.');
     if (pixels.brightness > 225) issues.push('Réduisez la surexposition.');
     if (pixels.sharpness < 12) issues.push('Image trop floue : stabilisez la caméra.');
   }
   const b = result.blendshapes;
+  const expressionAvailable = [
+    'mouthSmileLeft',
+    'mouthSmileRight',
+    'jawOpen',
+    'eyeBlinkLeft',
+    'eyeBlinkRight',
+  ].every((key) => Number.isFinite(b[key]) && b[key] >= 0 && b[key] <= 1);
+  const neutralExpression =
+    expressionAvailable &&
+    Math.max(b.mouthSmileLeft, b.mouthSmileRight) <= 0.55 &&
+    b.jawOpen <= 0.3 &&
+    Math.max(b.eyeBlinkLeft, b.eyeBlinkRight) <= 0.65;
+  if (!expressionAvailable)
+    issues.push('Expression neutre non vérifiée : coefficients indisponibles.');
   if (
     Math.max(b.mouthSmileLeft ?? 0, b.mouthSmileRight ?? 0) > 0.55 ||
     (b.jawOpen ?? 0) > 0.3 ||
@@ -107,23 +153,29 @@ export function assessQuality(
     result.timestamp > previous.timestamp &&
     result.timestamp - previous.timestamp < 800
   ) {
+    const previousValid =
+      previous.faces[0].every((p) => [p.x, p.y, p.z].every(Number.isFinite)) &&
+      previous.pose.source === 'matrix' &&
+      [previous.pose.yaw, previous.pose.pitch, previous.pose.roll].every(Number.isFinite) &&
+      previous.width === result.width &&
+      previous.height === result.height;
+    if (!previousValid) issues.push('Stabilité non vérifiée : observation précédente invalide.');
     const pointMotion = distance(points[1], previous.faces[0][1]);
     const poseMotion = Math.max(
       Math.abs(result.pose.yaw - previous.pose.yaw),
       Math.abs(result.pose.pitch - previous.pose.pitch),
     );
-    stability = Math.max(pointMotion / 0.018, poseMotion / 4);
-    if (stability > 1) issues.push('Restez immobile un instant.');
+    stability =
+      previousValid && poseAvailable ? Math.max(pointMotion / 0.018, poseMotion / 4) : null;
+    if (stability !== null && stability > 1) issues.push('Restez immobile un instant.');
   }
   return {
     ...base,
     faceSize,
     stability,
-    frontal:
-      result.pose.source === 'matrix' &&
-      Math.abs(result.pose.yaw) <= 12 &&
-      Math.abs(result.pose.pitch) <= 12,
+    frontal: poseAvailable && Math.abs(result.pose.yaw) <= 12 && Math.abs(result.pose.pitch) <= 12,
     issues,
+    neutralExpression,
     valid: !issues.length,
     label: issues.length ? 'adjust' : 'ready',
   };

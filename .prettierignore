@@ -10,3 +10,7 @@ public/vision-worker.js
 src/vision/connections.json
 src/vision/canonical.json
 package-lock.json
+
+public/vision/
+src/vision/runtime-assets.ts
+test-results-pwa-update/

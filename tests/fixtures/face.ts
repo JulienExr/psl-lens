@@ -8,6 +8,7 @@ export const readyQuality: CaptureQuality = {
   faceSize: 0.6,
   stability: 0,
   label: 'ready',
+  neutralExpression: true,
 };
 // Synthetic coordinates for unit tests only; never imported by production code.
 export function fixtureDetection(yaw = 0, timestamp = 0): FaceDetectionResult {
@@ -50,6 +51,12 @@ export function fixtureDetection(yaw = 0, timestamp = 0): FaceDetectionResult {
     inferenceMs: 25,
     pose: { yaw, pitch: 0, roll: 0, source: 'matrix' },
     matrix: [],
-    blendshapes: {},
+    blendshapes: {
+      mouthSmileLeft: 0,
+      mouthSmileRight: 0,
+      jawOpen: 0,
+      eyeBlinkLeft: 0,
+      eyeBlinkRight: 0,
+    },
   };
 }

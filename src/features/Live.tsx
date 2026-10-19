@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Camera,
@@ -12,14 +12,15 @@ import {
   Check,
   Info,
 } from 'lucide-react';
-import type { AggregatedAnalysis, Region, ScanObservation } from '../types';
+import type { AggregatedAnalysis, Region, ScanObservation, ScanMode } from '../types';
 import { useCamera } from '../hooks/useCamera';
-import { Mesh, type Layer } from '../components/Mesh';
+import type { Layer } from '../components/Mesh';
+import { LiveMesh, type LiveMeshHandle } from '../components/LiveMesh';
 import { LayerControls, LocalNotice, Loading } from '../components/Controls';
-import { advanceScan, initialScan, SCAN_STAGES } from '../vision/scan';
+import { advanceScan, initialScan, getScanStages } from '../vision/scan';
 import { aggregate } from '../vision/temporal';
 import { visionClient } from '../vision/client';
-import { measure } from '../morphometry/metrics';
+import { definitions, measure } from '../morphometry/metrics';
 
 export function Live({
   guided = false,
@@ -31,17 +32,47 @@ export function Live({
   const [layer, setLayer] = useState<Layer>('mesh');
   const [region, setRegion] = useState<Region>('all');
   const [mirrored, setMirrored] = useState(true);
+  const [measurementId, setMeasurementId] = useState('face-ratio');
+  const meshRef = useRef<LiveMeshHandle>(null);
+  const captureIssues = useRef(new Set<string>());
+  const timing = useRef<{ at: number; render: number; latency: number }[]>([]);
+  const lastStats = useRef(0);
+  const [stats, setStats] = useState({ frequency: 0, render: 0, latency: 0 });
   const [scan, setScan] = useState(initialScan);
   const scanRef = useRef(initialScan());
   const observations = useRef<ScanObservation[]>([]);
   const [count, setCount] = useState(0);
   const observe = useCallback(
     (observation: ScanObservation) => {
+      const render = meshRef.current?.draw(observation.detection) ?? 0;
+      timing.current = [
+        ...timing.current.slice(-29),
+        { at: observation.detection.timestamp, render, latency: observation.detection.inferenceMs },
+      ];
+      if (performance.now() - lastStats.current > 500) {
+        const values = timing.current;
+        setStats({
+          frequency:
+            values.length > 1
+              ? ((values.length - 1) * 1000) / (values.at(-1)!.at - values[0].at)
+              : 0,
+          render: values.reduce((s, v) => s + v.render, 0) / values.length,
+          latency: values.reduce((s, v) => s + v.latency, 0) / values.length,
+        });
+        lastStats.current = performance.now();
+      }
+      observation.quality.issues.forEach((issue) => captureIssues.current.add(issue));
       if (guided) {
         const next = advanceScan(scanRef.current, observation);
         scanRef.current = next;
         setScan(next);
-        if (next.complete) onReport(aggregate(next.observations, 'guided', next.rejected));
+        if (next.complete)
+          onReport(
+            aggregate(next.observations, 'guided', next.rejected, {
+              scanMode: next.mode,
+              captureIssues: [...captureIssues.current],
+            }),
+          );
       } else if (observation.quality.valid && observation.quality.frontal) {
         observations.current = [...observations.current.slice(-59), observation];
         setCount(observations.current.length);
@@ -50,22 +81,37 @@ export function Live({
     [guided, onReport],
   );
   const { videoRef, ...camera } = useCamera(observe);
+  useEffect(() => {
+    if (!camera.detection) meshRef.current?.draw(null);
+  }, [camera.detection]);
   const reset = () => {
-    scanRef.current = initialScan();
-    setScan(initialScan());
+    scanRef.current = initialScan(scanRef.current.mode);
+    setScan(scanRef.current);
     observations.current = [];
     setCount(0);
+    captureIssues.current.clear();
+    timing.current = [];
+    setStats({ frequency: 0, render: 0, latency: 0 });
+    meshRef.current?.draw(null);
+  };
+  const selectScanMode = (mode: ScanMode) => {
+    scanRef.current = initialScan(mode);
+    reset();
   };
   const start = (id?: string) => {
     reset();
     void camera.start(id);
   };
-  const stage = SCAN_STAGES[Math.min(scan.stageIndex, 2)];
+  const stages = getScanStages(scan.mode);
+  const stage = stages[Math.min(scan.stageIndex, stages.length - 1)];
   const active = camera.status === 'active';
   const busy = camera.status === 'starting' || camera.status === 'loading';
   const metrics =
     camera.detection && camera.quality ? measure(camera.detection, camera.quality) : [];
-  const progress = guided ? Math.round((scan.observations.length / 32) * 100) : 0;
+  const progress = guided
+    ? Math.round((scan.observations.length / stages.reduce((sum, s) => sum + s.required, 0)) * 100)
+    : 0;
+  const selectedMeasurement = definitions.find((m) => m.id === measurementId);
   return (
     <div className="page-width workspace">
       <div className="page-heading">
@@ -79,7 +125,7 @@ export function Live({
           </h1>
           <p>
             {guided
-              ? 'Trois poses guidées. Des observations stables. Un rapport plus cohérent.'
+              ? 'Une capture frontale stabilisée. Des vues supplémentaires facultatives pour vérifier la continuité.'
               : 'Votre visage en mouvement. Vos proportions, en perspective.'}
           </p>
         </div>
@@ -117,7 +163,7 @@ export function Live({
           >
             <div className={`media-coordinate ${mirrored ? 'mirrored' : ''}`}>
               <video ref={videoRef} playsInline muted aria-label="Flux de votre caméra" />
-              <Mesh result={camera.detection} layer={layer} region={region} />
+              <LiveMesh ref={meshRef} layer={layer} region={region} measurementId={measurementId} />
             </div>
             {!active && !busy && (
               <div className="camera-empty">
@@ -219,7 +265,42 @@ export function Live({
               </select>
             </label>
           )}
-          <LayerControls layer={layer} onLayer={setLayer} region={region} onRegion={setRegion} />
+          <LayerControls
+            layer={layer}
+            onLayer={setLayer}
+            region={region}
+            onRegion={(next) => {
+              setRegion(next);
+              setMeasurementId(definitions.find((m) => next === 'all' || m.region === next)!.id);
+            }}
+          />
+          {layer === 'measurements' && (
+            <div className="measurement-selector">
+              <label className="select-label">
+                Construction géométrique
+                <select value={measurementId} onChange={(e) => setMeasurementId(e.target.value)}>
+                  {definitions
+                    .filter((m) => region === 'all' || m.region === region)
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p className="small muted">
+                {selectedMeasurement?.formula}. La mesure reste descriptive; une vue frontale valide
+                est requise.
+              </p>
+            </div>
+          )}
+          {active && (
+            <div className="performance-readout mono">
+              <span>{stats.frequency ? stats.frequency.toFixed(1) : '—'} INFÉRENCES/S</span>
+              <span>{stats.latency.toFixed(1)} MS LATENCE</span>
+              <span>{stats.render.toFixed(2)} MS DESSIN CANVAS</span>
+            </div>
+          )}
           {camera.error && (
             <div className="error-message" role="alert">
               {camera.error}
@@ -232,6 +313,25 @@ export function Live({
         <aside className="studio-sidebar">
           {guided ? (
             <section className="panel scan-panel">
+              <div className="scan-mode-choice" role="group" aria-label="Protocole du scan">
+                <button
+                  aria-pressed={scan.mode === 'quick'}
+                  onClick={() => selectScanMode('quick')}
+                >
+                  Quick Scan
+                </button>
+                <button
+                  aria-pressed={scan.mode === 'multi-angle'}
+                  onClick={() => selectScanMode('multi-angle')}
+                >
+                  Multi-Angle Scan
+                </button>
+              </div>
+              <p className="small muted">
+                {scan.mode === 'quick'
+                  ? '16 observations de face. Aucun contrôle oblique requis.'
+                  : 'Les rotations contrôlent la continuité géométrique. Elles ne reconstruisent pas le visage et ne corrigent pas les ratios frontaux.'}
+              </p>
               <div className="eyebrow">
                 SCAN GUIDÉ <span className="mono">{progress}%</span>
               </div>
@@ -260,7 +360,7 @@ export function Live({
                 {scan.accepted} / {stage.required} OBSERVATIONS CONSÉCUTIVES
               </p>
               <ol className="scan-steps">
-                {SCAN_STAGES.map((s, i) => (
+                {stages.map((s, i) => (
                   <li
                     key={s.id}
                     className={
@@ -325,7 +425,13 @@ export function Live({
               <button
                 className="button primary full"
                 disabled={count < 5}
-                onClick={() => onReport(aggregate(observations.current, 'live'))}
+                onClick={() =>
+                  onReport(
+                    aggregate(observations.current, 'live', 0, {
+                      captureIssues: [...captureIssues.current],
+                    }),
+                  )
+                }
               >
                 Créer mon rapport
                 <ArrowRight size={17} />

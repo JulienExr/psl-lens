@@ -25,10 +25,11 @@ export function About() {
           pas toutes détectables. Un maillage visible ne garantit pas une mesure exacte.
         </p>
         <p>
-          Le scan collecte 16 observations frontales et 8 pour chaque rotation légère. Une pose
-          incorrecte interrompt la série en cours. L’agrégation utilise une médiane et rejette les
-          valeurs aberrantes avec un seuil fondé sur la MAD. Les rotations servent au contrôle de
-          pose, pas à une reconstruction 3D.
+          Le Quick Scan collecte 16 observations frontales. Le Multi-Angle Scan facultatif ajoute 8
+          observations pour chaque rotation légère. Une pose incorrecte interrompt la série en
+          cours. L’agrégation utilise une médiane et rejette les valeurs aberrantes avec un seuil
+          fondé sur la MAD. Les rotations servent au contrôle de de taille, de cadrage et de
+          continuité géométrique, sans reconstruction 3D ni vérification d’identité.
         </p>
       </section>
       <section>
@@ -41,9 +42,11 @@ export function About() {
           population n’est produit.
         </p>
         <p>
-          La V1 ne valide pas la projection du profil. Avec les poids 25/20/20/20/15 %, cette
-          composante manquante empêche le calcul d’un total global. Les sous-scores restent
-          inspectables et masquables.
+          Le protocole frontal expérimental utilise ses propres poids 30/25/20/25 % et refuse la
+          note si la qualité ou ses mesures obligatoires sont insuffisantes. Une photo unique garde
+          une fiabilité limitée. Le PSL complet historique reste indisponible : la projection du
+          profil n’est pas validée. La notation et ses contributions sont inspectables et
+          masquables.
         </p>
         <p className="score-disclaimer">{DISCLAIMER}</p>
       </section>

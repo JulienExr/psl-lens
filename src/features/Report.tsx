@@ -13,10 +13,15 @@ import { Mesh } from '../components/Mesh';
 import { LocalNotice } from '../components/Controls';
 import { regions } from '../components/regions';
 import { DISCLAIMER } from '../scoring';
+import { FrontalScorePanel } from '../components/FrontalScorePanel';
+import { captureRecommendations } from '../recommendations';
+import { buildMeasurementGeometry } from '../vision/measurement-geometry';
 
 export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
   const [showScore, setShowScore] = useState(true);
   const [region, setRegion] = useState<Region>('all');
+  const [selectedId, setSelectedId] = useState<string>();
+  const [showPhoto, setShowPhoto] = useState(true);
   if (!analysis)
     return (
       <div className="empty-report page-width">
@@ -35,6 +40,12 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
       </div>
     );
   const available = analysis.measurements.filter((m) => m.value !== null);
+  const selected = analysis.measurements.find((m) => m.id === selectedId);
+  const descriptiveReliability = !available.length
+    ? 'Indisponible'
+    : available.every((m) => m.confidence === 'moderate')
+      ? 'Modérée'
+      : 'Limitée';
   const exportReport = () => {
     // Deliberate user-triggered export: descriptive measures only, no landmarks or image.
     const content = JSON.stringify(
@@ -43,7 +54,8 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
         source: analysis.source,
         observationCount: analysis.observationCount,
         measurements: analysis.measurements,
-        ...(showScore ? { score: analysis.score } : {}),
+        ...(showScore ? { score: analysis.score, frontalScore: analysis.frontalScore } : {}),
+        scan: analysis.scan,
         limitations: [
           'Mesures 2D apparentes, sans dimensions physiques.',
           'Profil non validé en V1.',
@@ -84,6 +96,9 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
           <Download size={16} />
           Exporter les mesures
         </button>
+        <button className="button secondary compact print-action" onClick={() => window.print()}>
+          Imprimer / PDF
+        </button>
       </div>
       <LocalNotice />
       <div className="report-summary">
@@ -104,9 +119,7 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
         </div>
         <div>
           <span className="mono">FIABILITÉ DESCRIPTIVE</span>
-          <strong className="summary-word">
-            {analysis.morphometryCount >= 5 ? 'Modérée' : 'Limitée'}
-          </strong>
+          <strong className="summary-word">{descriptiveReliability}</strong>
         </div>
       </div>
       <div className="report-layout">
@@ -122,11 +135,53 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
                 aspectRatio: `${analysis.representative.width}/${analysis.representative.height}`,
               }}
             >
-              {analysis.preview && (
+              {analysis.preview && showPhoto && (
                 <img src={analysis.preview} alt="Photo de l’analyse, non enregistrée" />
               )}
-              <Mesh result={analysis.representative} layer="mesh" region={region} />
+              {selected?.value !== null && (
+                <Mesh
+                  result={analysis.representative}
+                  layer={selected ? 'measurements' : 'mesh'}
+                  region={region}
+                  measurementId={selectedId}
+                />
+              )}
             </div>
+            {analysis.preview && (
+              <label className="photo-visibility">
+                <input
+                  type="checkbox"
+                  checked={showPhoto}
+                  onChange={(e) => setShowPhoto(e.target.checked)}
+                />
+                Afficher la photo
+              </label>
+            )}
+            {selected && (
+              <div className="selected-construction" role="status">
+                <span className="eyebrow">Construction sélectionnée</span>
+                <h3>{selected.name}</h3>
+                <p className="mono">
+                  {selected.value === null
+                    ? 'N/D'
+                    : selected.value.toFixed(selected.unit === '°' ? 1 : 3)}{' '}
+                  {selected.unit}
+                </p>
+                <p>
+                  {buildMeasurementGeometry(analysis.representative, selected.id)?.description ??
+                    selected.description}
+                </p>
+                <p>{selected.formula}</p>
+                <p className="small">
+                  Lignes pleines : numérateur. Tirets : référence. Pointillés :
+                  projections/comparaisons. La géométrie de cette observation peut différer
+                  légèrement de la médiane temporelle.
+                </p>
+                <button className="text-link" onClick={() => setSelectedId(undefined)}>
+                  Revenir au maillage
+                </button>
+              </div>
+            )}
             <p className="small muted">
               {analysis.preview
                 ? 'Repères superposés à votre capture.'
@@ -137,19 +192,9 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
             <span className="eyebrow">POUR VOTRE PROCHAINE CAPTURE</span>
             <h3>Un peu de recul, plus de clarté.</h3>
             <ul className="recommendations">
-              <li>
-                Placez l’objectif à hauteur des yeux et éloignez-le pour réduire la perspective.
-              </li>
-              <li>Utilisez une lumière diffuse, face à vous.</li>
-              {analysis.morphometryCount < 5 && (
-                <li>
-                  Essayez le scan guidé : plusieurs observations permettent d’estimer la dispersion.
-                </li>
-              )}
-              <li>
-                Pour explorer votre présentation, comparez différentes coiffures dans les mêmes
-                conditions lumineuses.
-              </li>
+              {captureRecommendations(analysis).map((advice) => (
+                <li key={advice}>{advice}</li>
+              ))}
             </ul>
             <Link to="/scan" className="text-link">
               Faire un nouveau scan
@@ -158,6 +203,51 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
           </section>
         </aside>
         <div className="report-content">
+          {analysis.scan && (
+            <section className="panel consistency-panel">
+              <span className="eyebrow">
+                {analysis.scan.mode === 'quick'
+                  ? 'QUICK SCAN · FRONTAL STABILISÉ'
+                  : 'MULTI-ANGLE · CONTRÔLE DE CONTINUITÉ'}
+              </span>
+              <h3>
+                {analysis.scan.mode === 'quick'
+                  ? 'Des mesures issues du frontal uniquement'
+                  : analysis.scan.consistency.status === 'consistent'
+                    ? 'Continuité géométrique cohérente'
+                    : 'Continuité non validée'}
+              </h3>
+              <p>
+                {analysis.scan.mode === 'quick'
+                  ? 'Les rotations sont facultatives. Ce rapport ne prétend pas valider le profil.'
+                  : 'Les vues obliques contrôlent la taille, le cadrage, la pose et une proportion verticale. Elles ne corrigent pas les mesures frontales, ne vérifient pas l’identité et ne reconstruisent pas la 3D.'}
+              </p>
+              {analysis.scan.mode === 'multi-angle' && (
+                <>
+                  {analysis.scan.consistency.issues.map((issue) => (
+                    <p className="consistency-issue" key={issue}>
+                      {issue}
+                    </p>
+                  ))}
+                  <ul>
+                    {analysis.scan.consistency.checks.map((check) => (
+                      <li key={check.stage}>
+                        Vue {check.stage === 'left' ? 'gauche' : 'droite'} : taille ×
+                        {Number.isFinite(check.sizeRatio) ? check.sizeRatio.toFixed(2) : 'N/D'},
+                        proportion verticale ×
+                        {Number.isFinite(check.lowerFaceRatio)
+                          ? check.lowerFaceRatio.toFixed(2)
+                          : 'N/D'}
+                        , déplacement normalisé{' '}
+                        {Number.isFinite(check.centerShift) ? check.centerShift.toFixed(3) : 'N/D'}{' '}
+                        · {check.passed ? 'critères respectés' : 'à reprendre'}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          )}
           <div className="measurement-heading">
             <h2>Les mesures descriptives</h2>
             <span className="small muted">
@@ -166,7 +256,14 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
           </div>
           <div className="region-tabs" aria-label="Régions du rapport">
             {regions.map((r) => (
-              <button key={r.id} onClick={() => setRegion(r.id)} aria-pressed={region === r.id}>
+              <button
+                key={r.id}
+                onClick={() => {
+                  setRegion(r.id);
+                  setSelectedId(undefined);
+                }}
+                aria-pressed={region === r.id}
+              >
                 {r.name}
               </button>
             ))}
@@ -175,80 +272,15 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
             {analysis.measurements
               .filter((m) => region === 'all' || m.region === region)
               .map((m) => (
-                <MeasurementCard key={m.id} measurement={m} />
+                <MeasurementCard
+                  key={m.id}
+                  measurement={m}
+                  onSelect={() => setSelectedId(m.id)}
+                  selected={selectedId === m.id}
+                />
               ))}
           </div>
-          <section className="panel scoring-panel">
-            <label className="score-toggle">
-              <span>
-                <strong>Afficher les sous-scores expérimentaux</strong>
-                <small>Facultatif · heuristique subjective de conception</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={showScore}
-                onChange={(e) => setShowScore(e.target.checked)}
-                aria-label="Afficher les sous-scores expérimentaux"
-              />
-            </label>
-            {showScore && (
-              <>
-                <div className="score-unavailable">
-                  <span className="score-dash">
-                    —<small>/ 8</small>
-                  </span>
-                  <div>
-                    <h3>Score global indisponible</h3>
-                    <p>
-                      La composante du profil manque. Aucun total n’est extrapolé à partir des
-                      catégories disponibles.
-                    </p>
-                  </div>
-                </div>
-                <div className="score-categories">
-                  {analysis.score.categories.map((c) => (
-                    <details key={c.id}>
-                      <summary>
-                        <span>
-                          {c.name}
-                          <small>Poids : {Math.round(c.weight * 100)} %</small>
-                        </span>
-                        <strong className="mono">
-                          {c.score === null ? 'N/D' : `${c.score.toFixed(2)} / 8`}
-                        </strong>
-                      </summary>
-                      <div className="score-detail">
-                        {c.reason && <p>{c.reason}</p>}
-                        {c.inputs.map((i) => (
-                          <p key={i.id}>
-                            <strong>
-                              {analysis.measurements.find((m) => m.id === i.id)?.name}
-                            </strong>
-                            <br />
-                            Valeur : {i.value.toFixed(3)} · cible de conception : {i.target} ·
-                            tolérance : {i.tolerance}
-                            <br />
-                            Contribution interne : {i.score.toFixed(2)} / 8
-                          </p>
-                        ))}
-                        {c.contribution !== null && (
-                          <p>
-                            Contribution pondérée au total potentiel : {c.contribution.toFixed(3)}.
-                            Total non calculé.
-                          </p>
-                        )}
-                      </div>
-                    </details>
-                  ))}
-                </div>
-                <p className="small muted">
-                  Version {analysis.score.version}. Cibles arbitraires, sans référence à une
-                  population ou preuve d’attractivité.
-                </p>
-              </>
-            )}
-            <p className="score-disclaimer">{DISCLAIMER}</p>
-          </section>
+          <FrontalScorePanel analysis={analysis} visible={showScore} onToggle={setShowScore} />
           <section className="limitations">
             <Info size={20} />
             <div>
@@ -280,10 +312,18 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
     </div>
   );
 }
-function MeasurementCard({ measurement: m }: { measurement: Measurement }) {
+function MeasurementCard({
+  measurement: m,
+  onSelect,
+  selected,
+}: {
+  measurement: Measurement;
+  onSelect: () => void;
+  selected: boolean;
+}) {
   const value = m.value === null ? 'N/D' : m.value.toFixed(m.unit === '°' ? 1 : 3);
   return (
-    <details className="measurement-card">
+    <details className={`measurement-card ${selected ? 'selected' : ''}`}>
       <summary>
         <span className="measurement-label">{m.name}</span>
         <span className="measurement-value mono">
@@ -307,6 +347,9 @@ function MeasurementCard({ measurement: m }: { measurement: Measurement }) {
         </span>
       </summary>
       <div className="measurement-detail">
+        <button className="text-link" onClick={onSelect} aria-label={`Visualiser ${m.name}`}>
+          Visualiser la construction
+        </button>
         <p>{m.description}</p>
         <dl>
           <dt>Formule</dt>
@@ -321,6 +364,14 @@ function MeasurementCard({ measurement: m }: { measurement: Measurement }) {
               ? m.spread.toFixed(4)
               : 'Non estimable sur une seule observation'}
           </dd>
+          <dt>Rétention des observations</dt>
+          <dd>
+            {m.retention === undefined
+              ? 'N/D'
+              : `${Math.round(m.retention * 100)} % · taux conservé, pas une confiance du modèle`}
+          </dd>
+          <dt>Dispersion avant rejet</dt>
+          <dd>{m.rawSpread === undefined ? 'Non estimable' : m.rawSpread.toFixed(4)}</dd>
         </dl>
         {m.reason && <p>{m.reason}</p>}
         <p className="small muted">{m.limitation}</p>

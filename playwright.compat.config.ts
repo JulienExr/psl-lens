@@ -7,7 +7,15 @@ export default defineConfig({
   expect: { timeout: 60000 },
   reporter: 'list',
   projects: [
-    { name: 'firefox', use: { browserName: 'firefox' } },
+    {
+      name: 'firefox',
+      use: {
+        browserName: 'firefox',
+        // GPU-less CI runners can block WebGL2 before trying Mesa software GL.
+        // Test the real renderer; never replace inference or change app checks.
+        launchOptions: process.env.CI ? { firefoxUserPrefs: { 'webgl.force-enabled': true } } : {},
+      },
+    },
     { name: 'webkit', use: { browserName: 'webkit' } },
   ],
   use: { baseURL: 'http://127.0.0.1:5173', trace: 'retain-on-failure' },

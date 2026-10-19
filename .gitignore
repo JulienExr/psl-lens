@@ -17,3 +17,7 @@ public/wasm/
 public/models/*.task
 public/vision-worker.js
 .DS_Store
+
+public/vision/
+src/vision/runtime-assets.ts
+test-results-pwa-update/

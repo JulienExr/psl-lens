@@ -1,6 +1,6 @@
 {
   "name": "psl-lens",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,7 +22,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:pwa": "npm run build && playwright test --config playwright.production.config.ts",
-    "test:compat": "playwright test --config playwright.compat.config.ts"
+    "test:compat": "playwright test --config playwright.compat.config.ts",
+    "test:pwa-update": "playwright test --config playwright.pwa-update.config.ts",
+    "test:performance": "playwright test --config playwright.performance.config.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",
