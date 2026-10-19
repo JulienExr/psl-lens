@@ -100,11 +100,13 @@ contexte WebGL 2 est vérifié avant l’initialisation du modèle.
 
 Firefox sur un runner GitHub sans GPU refusait WebGL2 (`AllowWebgl2:false`),
 alors que le même parcours passait localement. Le projet Playwright Firefox en
-CI autorise explicitement WebGL via `webgl.force-enabled`, pour utiliser le
-rendu logiciel disponible, sans remplacer le moteur ni modifier les contrôles
-de production. Le test vérifie WebGL2 avant l’inférence pour rendre ce défaut
+CI autorise explicitement WebGL via `webgl.force-enabled` et s’exécute avec
+Mesa (`LIBGL_ALWAYS_SOFTWARE=1`) sous Xvfb en mode headed. Le drapeau seul ne
+suffisait pas au runner : son navigateur headless épuisait les pilotes GL.
+Le moteur et les contrôles de production restent réels. Le test vérifie WebGL2 avant l’inférence pour rendre ce défaut
 d’infrastructure immédiatement visible. Contexte :
-[rapport Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1970486).
+[rapport Mozilla](https://bugzilla.mozilla.org/show_bug.cgi?id=1970486) et
+[mode headed Linux de Playwright](https://playwright.dev/docs/ci#running-headed).
 
 Les mocks ne remplacent jamais le moteur dans le produit. Les fixtures sont
 sous `tests/`, sans import depuis `src/`. L’image historique est attribuée dans

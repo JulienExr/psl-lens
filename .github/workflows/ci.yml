@@ -93,7 +93,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - run: npm run test:compat -- --project=${{ matrix.browser }}
+      - name: Prepare Firefox software GL
+        if: matrix.browser == 'firefox'
+        run: sudo apt-get install --no-install-recommends -y xvfb xauth libgl1-mesa-dri libegl1 libglx-mesa0
+      - name: Firefox with a virtual display and Mesa
+        if: matrix.browser == 'firefox'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run --auto-servernum npm run test:compat -- --project=firefox --headed
+      - name: WebKit compatibility
+        if: matrix.browser == 'webkit'
+        run: npm run test:compat -- --project=webkit
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
