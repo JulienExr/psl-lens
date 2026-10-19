@@ -8,6 +8,11 @@ test-results-pwa/
 test-results-compat/
 .superpowers/
 *.local
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
 public/wasm/
 public/models/*.task
 public/vision-worker.js
