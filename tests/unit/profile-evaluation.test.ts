@@ -204,11 +204,11 @@ describe('reproducible profile evaluation', () => {
     ).toEqual(report);
   });
 
-  it('imports custom JSON, writes the requested report and rejects absent provenance before reporting', () => {
+  it('imports custom JSON, creates output directories and rejects absent provenance before reporting', () => {
     const directory = mkdtempSync(join(tmpdir(), 'psl-profile-evaluation-'));
     try {
       const input = join(directory, 'dataset.json'),
-        output = join(directory, 'report.json');
+        output = join(directory, 'fresh', 'reports', 'report.json');
       const data = dataset();
       writeFileSync(input, JSON.stringify(data));
       execFileSync(process.execPath, ['scripts/evaluate-profile.mjs', input, '--output', output], {

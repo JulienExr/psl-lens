@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -107,8 +107,11 @@ async function main() {
     `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`
   );
   const output = `${JSON.stringify(evaluateProfileDataset(dataset), null, 2)}\n`;
-  if (outputPath) await writeFile(resolve(outputPath), output);
-  else process.stdout.write(output);
+  if (outputPath) {
+    const destination = resolve(outputPath);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, output);
+  } else process.stdout.write(output);
 }
 
 main().catch((error) => {
