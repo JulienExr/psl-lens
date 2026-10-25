@@ -1,5 +1,6 @@
 import type { ScanObservation } from '../types';
 import type { ScanState } from './scan';
+import { classifyObservedView } from './orientation';
 import { aggregate } from './temporal';
 /** Preserve accepted orientation stages when handing an unfinished Advanced Scan to Profile. */
 export function buildAdvancedContinuation(
@@ -10,6 +11,7 @@ export function buildAdvancedContinuation(
   const front = state.observations.filter(
     (o) =>
       o.stage === 'front' &&
+      classifyObservedView(o.detection.pose) === 'front' &&
       o.quality.valid &&
       o.quality.frontal &&
       o.measurements.some((m) => m.value !== null && Number.isFinite(m.value)),

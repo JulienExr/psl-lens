@@ -157,3 +157,7 @@ moteurs Firefox/WebKit, sans déploiement automatique.
 Les sources sont réparties entre `src/features` (parcours), `src/components`
 (rendu), `src/hooks` (caméra), `src/vision` (détection/qualité/scan/agrégation),
 `src/morphometry` (calculs) et `src/scoring` (heuristique).
+
+### Confirmation des vues et options du rapport
+
+Le score multi-vues nécessite une confirmation explicite que les vues représentent la même personne. Cette attestation reste en session et est annulée si une vue est remplacée ou retirée; chaque analyse reste consultable individuellement. Les coordonnées numériques détaillées du profil sont incluses dans le PDF uniquement avec l’option technique. Pan/zoom préservent la confirmation du placement; modifier un repère ou le côté anatomique demande une nouvelle validation. Voir [les corrections de revue finale](docs/final-review-corrections.md).

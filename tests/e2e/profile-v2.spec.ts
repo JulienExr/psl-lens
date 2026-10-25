@@ -103,7 +103,7 @@ test('real lateral photo → assisted points → profile-only report → private
   await page.getByRole('button', { name: 'Effacer la session', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Votre rapport commence ici.' })).toBeVisible();
 });
-test('real frontal and lateral imports contribute separately to a multiview report', async ({
+test('different-subject frontal and lateral imports remain individual without association', async ({
   page,
 }) => {
   await page.goto('/photo');
@@ -119,7 +119,10 @@ test('real frontal and lateral imports contribute separately to a multiview repo
   await place(page);
   await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
   const multi = page.locator('.v2-report .scoring-panel');
-  await expect(multi.getByRole('heading')).toHaveText(/^\d\.\d{2} \/ 8$/);
+  await expect(multi.getByRole('heading')).toHaveText('Association des vues à confirmer');
+  await expect(
+    page.getByRole('checkbox', { name: 'Je confirme que les vues représentent la même personne' }),
+  ).not.toBeChecked();
   await expect(multi).toContainText('psl-multiview-2.0.0');
   await expect(page.locator('.v2-report')).toContainText('profile-left');
   await page.getByRole('button', { name: 'Ouvrir l’explorateur géométrique' }).click();
@@ -201,4 +204,85 @@ test('replacement image decoding prevents submission of the previously confirmed
     page.getByRole('checkbox', { name: /Je confirme une vue latérale/ }),
   ).not.toBeChecked();
   await expect(page.getByRole('button', { name: 'Valider et voir le rapport' })).toBeDisabled();
+});
+
+test('same-subject views require session confirmation which is revoked by replacements and removal', async ({
+  page,
+}) => {
+  await page.goto('/photo');
+  await page
+    .getByLabel('Photo de face', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-front.jpg'));
+  await expect(page.getByRole('button', { name: 'Découvrir mon rapport' })).toBeEnabled();
+  await page
+    .getByLabel('Photo de profil facultative')
+    .setInputFiles(path.resolve('tests/fixtures/capone-profile.jpg'));
+  await page.getByLabel('Côté anatomique observé').selectOption('left');
+  await place(page);
+  const association = page.getByRole('checkbox', {
+      name: 'Je confirme que les vues représentent la même personne',
+    }),
+    multi = page.locator('.v2-report .scoring-panel');
+  await expect(association).not.toBeChecked();
+  await expect(multi.getByRole('heading')).toHaveText('Association des vues à confirmer');
+  await association.check();
+  await expect(multi.getByRole('heading')).toHaveText(/^\d\.\d{2} \/ 8$/);
+  // Confirmation survives in-session navigation but is explicit and revocable.
+  await page.getByRole('link', { name: 'La méthode', exact: true }).click();
+  await page.getByRole('link', { name: 'Mon rapport', exact: true }).click();
+  await expect(association).toBeChecked();
+  await association.uncheck();
+  await expect(multi.getByRole('heading')).toHaveText('Association des vues à confirmer');
+  await association.check();
+  // Replacing a profile retains the automatic analysis but invalidates the exact-view association.
+  await page.getByRole('link', { name: 'Ajouter ou reprendre un profil' }).click();
+  await page
+    .getByLabel('Importer une photo de profil', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-profile.jpg'));
+  await page.getByLabel('Côté anatomique observé').selectOption('left');
+  await place(page);
+  await expect(association).not.toBeChecked();
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
+  await association.check();
+  // Replacing the automatic analysis retains the individual profile and also revokes confirmation.
+  await page.getByRole('link', { name: 'Analyser une face', exact: true }).click();
+  await page
+    .getByLabel('Photo de face', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-front.jpg'));
+  await page.getByRole('button', { name: 'Découvrir mon rapport' }).click();
+  await expect(association).not.toBeChecked();
+  await expect(page.locator('.profile-result')).toHaveCount(1);
+  await association.check();
+  await page.getByRole('button', { name: 'Retirer le profil gauche', exact: true }).click();
+  await expect(association).toHaveCount(0);
+  await expect(page.locator('.profile-result')).toHaveCount(0);
+  await expect(multi.getByRole('heading')).toHaveText('Complétez les vues pour cette estimation');
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Votre rapport commence ici.' })).toBeVisible();
+});
+
+test('removing the automatic view retains its individual profile without a multiview score', async ({
+  page,
+}) => {
+  await page.goto('/photo');
+  await page
+    .getByLabel('Photo de face', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-front.jpg'));
+  await expect(page.getByRole('button', { name: 'Découvrir mon rapport' })).toBeEnabled();
+  await page
+    .getByLabel('Photo de profil facultative')
+    .setInputFiles(path.resolve('tests/fixtures/capone-profile.jpg'));
+  await place(page);
+  await page
+    .getByRole('checkbox', { name: 'Je confirme que les vues représentent la même personne' })
+    .check();
+  await page.getByRole('button', { name: 'Retirer l’analyse automatique', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Votre profil, en perspective.' })).toBeVisible();
+  await expect(page.locator('.profile-result')).toHaveCount(1);
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveCount(0);
+  await expect(
+    page.getByRole('checkbox', { name: 'Je confirme que les vues représentent la même personne' }),
+  ).toHaveCount(0);
+  await expect(page.getByText('Complétez les vues pour cette estimation')).toBeVisible();
 });

@@ -9,7 +9,8 @@ import { Report } from '../features/Report';
 import { About } from '../features/About';
 import { visionClient } from '../vision/client';
 import { DISCLAIMER } from '../scoring';
-import type { ProfileAnalysis } from '../types/v2';
+import type { ProfileAnalysis, ViewAssociation } from '../types/v2';
+import { confirmViewAssociation } from '../vision/view-association';
 import type { ProfilePhoto } from '../features/Profile';
 import { ModuleBoundary } from '../components/ModuleBoundary';
 const Profile = lazy(() => import('../features/Profile'));
@@ -18,6 +19,7 @@ import { OfflineStatus } from '../components/OfflineStatus';
 export function App() {
   const [analysis, setAnalysis] = useState<AggregatedAnalysis | null>(null);
   const [profiles, setProfiles] = useState<ProfileAnalysis[]>([]);
+  const [association, setAssociation] = useState<ViewAssociation | null>(null);
   const [pendingProfile, setPendingProfile] = useState<ProfilePhoto>();
   const [session, setSession] = useState(0);
   const [notice, setNotice] = useState('');
@@ -26,27 +28,35 @@ export function App() {
   const location = useLocation();
   const receiveReport = useCallback(
     (report: AggregatedAnalysis) => {
-      if (analysis) setProfiles([]);
+      setAssociation(null);
       setAnalysis(report);
       navigate('/report');
       window.scrollTo?.(0, 0);
     },
-    [navigate, analysis],
+    [navigate],
   );
   const openProfile = (photo: ProfilePhoto | undefined, frontal?: AggregatedAnalysis) => {
+    setAssociation(null);
     setAnalysis(frontal ?? null);
     setProfiles([]);
     setPendingProfile(photo);
     navigate('/profile');
   };
   const receiveProfile = (profile: ProfileAnalysis) => {
+    setAssociation(null);
     setProfiles((previous) => [...previous.filter((p) => p.side !== profile.side), profile]);
     setPendingProfile(undefined);
     navigate('/report');
     window.scrollTo?.(0, 0);
   };
+  const removeView = (id: string) => {
+    setAssociation(null);
+    if (analysis?.id === id) setAnalysis(null);
+    else setProfiles((previous) => previous.filter((profile) => profile.id !== id));
+  };
   const clear = () => {
     visionClient.dispose();
+    setAssociation(null);
     setAnalysis(null);
     setProfiles([]);
     setPendingProfile(undefined);
@@ -169,7 +179,20 @@ export function App() {
             path="/photo"
             element={<Photo onReport={receiveReport} onProfile={openProfile} />}
           />
-          <Route path="/report" element={<Report analysis={analysis} profiles={profiles} />} />
+          <Route
+            path="/report"
+            element={
+              <Report
+                analysis={analysis}
+                profiles={profiles}
+                association={association}
+                onAssociationChange={(confirmed) =>
+                  setAssociation(confirmed ? confirmViewAssociation(analysis, profiles) : null)
+                }
+                onRemoveView={removeView}
+              />
+            }
+          />
           <Route path="/about" element={<About />} />
           <Route
             path="*"

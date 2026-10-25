@@ -56,3 +56,31 @@ it('uses one latest approximate observation only when no strict front was acquir
   expect(r?.frontalScore.score).not.toBeNull();
   expect(buildAdvancedContinuation(initialScan(), [], [])).toBeUndefined();
 });
+
+it('keeps an indicative oblique fallback orientation instead of claiming a frontal acquisition', () => {
+  const r = buildAdvancedContinuation(initialScan('multi-angle'), [obs(22, 'front', 1.1)], [])!;
+  expect(r.representative.pose.yaw).toBe(22);
+  expect(r.source).toBe('live');
+  expect(r.scan).toBeUndefined();
+  expect(r.views?.[0].view).toBe('oblique-left');
+  expect(r.measurements.find((m) => m.value !== null)?.provenance?.view).toBe('oblique-left');
+  expect(r.captureIssues?.join(' ')).toMatch(/oblique.*aucune acquisition frontale/i);
+  expect(r.frontalScore.score).not.toBeNull();
+  expect(r.frontalScore.reliability).toBe('limited');
+});
+
+it('does not infer a front view when the pose is unknown or tilted out of plane', () => {
+  const unknown = obs(0);
+  unknown.detection.pose.source = 'unavailable';
+  const tilted = obs(0);
+  tilted.detection.pose.pitch = 25;
+  for (const [o, view] of [
+    [unknown, 'orientation-unknown'],
+    [tilted, 'non-frontal'],
+  ] as const) {
+    const r = buildAdvancedContinuation(initialScan(), [o], [])!;
+    expect(r.views?.[0].view).toBe(view);
+    expect(r.measurements[0].provenance?.view).toBe(view);
+    expect(r.frontalScore.reliability).toBe('limited');
+  }
+});

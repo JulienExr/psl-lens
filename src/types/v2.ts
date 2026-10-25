@@ -47,13 +47,22 @@ export interface ProfileAnalysis {
   orientation: { method: 'user-declared'; strictProfileConfirmed: boolean };
 }
 export type ViewKind =
-  'front' | 'oblique-left' | 'oblique-right' | 'profile-left' | 'profile-right' | 'profile-unknown';
+  | 'front'
+  | 'oblique-left'
+  | 'oblique-right'
+  | 'non-frontal'
+  | 'orientation-unknown'
+  | 'mixed-orientations'
+  | 'profile-left'
+  | 'profile-right'
+  | 'profile-unknown';
 export interface ViewSummary {
   id: string;
   view: ViewKind;
   method: 'automatic' | 'assisted';
   source: string;
   observationCount: number;
+  validatedFrontal?: boolean;
   pose?: FacePose;
   quality: string;
   warnings: string[];
@@ -65,6 +74,8 @@ export interface MeasurementProvenance {
   algorithm: string;
   source: string;
   observations: number;
+  observedViews?: ViewKind[];
+  validatedFrontal?: boolean;
   orientation?: FacePose;
 }
 export interface StylePreferences {
@@ -85,7 +96,13 @@ export interface Recommendation {
 export interface MultiViewScore extends FrontalPSLResult {
   profileSourceId?: string;
 }
+export interface ViewAssociation {
+  frontalId: string;
+  profileIds: string[];
+  confirmedAt: string;
+}
 export interface ReportData {
+  association?: ViewAssociation | null;
   frontal: AggregatedAnalysis | null;
   profiles: ProfileAnalysis[];
   multiview: MultiViewScore;

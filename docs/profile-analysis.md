@@ -97,3 +97,7 @@ une robustesse réelle au miroir, à l’éclairage ou à l’expression.
 ## Sources du choix de coordonnées
 
 Les conventions du modèle sont décrites dans la [documentation officielle MediaPipe](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js) et la [géométrie Face Mesh](https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/face_mesh.md). La profondeur relative sous perspective faible ne fournit pas une dimension physique; elle n’est pas utilisée par ce moteur latéral. L’absence de validation du profil strict est une limite du présent produit, pas une garantie de précision pour les autres poses.
+
+## Confirmation de placement — correction du 25 octobre 2026
+
+Pan, zoom et recentrage ne modifient pas les repères et préservent leur confirmation. Ajouter, déplacer, modifier ou retirer un point la révoque, de même que changer le côté anatomique. Un glissement effectif crée une seule entrée d’historique. Un clic stationnaire, une saisie inchangée ou un déplacement revenant exactement à son origine ne polluent pas l’historique; undo annule uniquement une modification réelle et impose une nouvelle validation.

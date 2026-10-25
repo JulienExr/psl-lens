@@ -64,3 +64,9 @@ Les en-têtes Cloudflare fournis interdisent microphone/géolocalisation, framin
 plugins et ressources externes. Le CSP permet `wasm-unsafe-eval` pour WASM et
 les styles inline pour les dimensions/visualisations React; il n’autorise pas
 `unsafe-eval` JavaScript. Aucun secret dans le frontend.
+
+## Corrections de revue finale — 25 octobre 2026
+
+Les valeurs numériques normalisées x/y des repères de profil ne figurent dans le PDF que si l’option technique est explicitement sélectionnée. Sans cette option, les mesures descriptives, diagrammes vectoriels et indications de provenance restent présents. Les diagrammes représentent donc toujours la géométrie; cette option retire les coordonnées détaillées, elle ne rend pas la forme anonyme. Les photographies restent exclues par défaut et les scores ne sont exportés que si leur option est active.
+
+Associer les analyses automatiques et latérales au score multi-vues demande une confirmation volontaire qu’elles représentent la même personne. Aucun contrôle biométrique n’est ajouté. Cette attestation est liée aux identifiants exacts des vues et reste uniquement dans l’état de session : ni stockage persistant, ni export/réimport de l’attestation. Elle est révoquée après remplacement, ajout ou retrait d’une vue, effacement ou rechargement. Les analyses individuelles restent disponibles sans attestation. Changer cette association ou retirer une vue démonte les contrôles PDF et invalide aussi un export encore en cours.

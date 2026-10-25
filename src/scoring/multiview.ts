@@ -1,5 +1,6 @@
 import type { AggregatedAnalysis } from '../types';
-import type { MultiViewScore, ProfileAnalysis } from '../types/v2';
+import type { MultiViewScore, ProfileAnalysis, ViewAssociation } from '../types/v2';
+import { isViewAssociationConfirmed } from '../vision/view-association';
 import { DISCLAIMER } from './index';
 // Product references for exploration only: not beauty standards or population statistics.
 export const MULTIVIEW_CONFIG = {
@@ -32,7 +33,9 @@ export const MULTIVIEW_CONFIG = {
 export function scoreMultiview(
   frontal: AggregatedAnalysis | null,
   profiles: ProfileAnalysis[],
+  association: ViewAssociation | null = null,
 ): MultiViewScore {
+  const associated = isViewAssociationConfirmed(frontal, profiles, association);
   const config = MULTIVIEW_CONFIG;
   const usable = (p: ProfileAnalysis) =>
     p.quality.valid &&
@@ -101,6 +104,7 @@ export function scoreMultiview(
     }),
   ];
   const eligible =
+    associated &&
     !!f &&
     f.score !== null &&
     Number.isFinite(f.score) &&
@@ -109,6 +113,11 @@ export function scoreMultiview(
   const coverage = categories.reduce((s, c) => s + c.weight * c.coverage, 0);
   const reasons = [
     ...new Set([
+      ...(!associated
+        ? [
+            'Association des vues non confirmée : confirmez qu’elles représentent la même personne avant le scoring multi-vues. Les analyses individuelles restent disponibles.',
+          ]
+        : []),
       ...(f?.reasons ?? []),
       ...(selected?.quality.warnings ?? []),
       'Protocole subjectif : cibles et poids de conception, sans validation scientifique de l’attractivité.',

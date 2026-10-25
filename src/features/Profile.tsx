@@ -11,6 +11,14 @@ export interface ProfilePhoto {
   source: 'import' | 'live-capture';
 }
 type Points = Partial<Record<ProfilePointId, ProfilePoint>>;
+const samePoint = (a?: ProfilePoint, b?: ProfilePoint) =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.source === b.source &&
+    a.confirmed === b.confirmed);
 export default function Profile({
   initial,
   onComplete,
@@ -38,6 +46,8 @@ export default function Profile({
     startY: number;
     panX: number;
     panY: number;
+    points?: Points;
+    confirmed?: boolean;
   } | null>(null);
   useEffect(() => {
     mounted.current = true;
@@ -45,21 +55,29 @@ export default function Profile({
       mounted.current = false;
     };
   }, []);
-  const save = () => {
-    setHistory((h) => [...h.slice(-49), structuredClone(points)]);
+  const save = (snapshot = points) => {
+    setHistory((h) => [...h.slice(-49), structuredClone(snapshot)]);
     setConfirmed(false);
   };
-  const setPoint = (id: ProfilePointId, x: number, y: number) => {
-    setPoints((p) => ({
-      ...p,
-      [id]: {
-        x: Math.max(0, Math.min(1, x)),
-        y: Math.max(0, Math.min(1, y)),
-        source: 'manual',
-        confirmed: true,
-      },
-    }));
+  const setPoint = (id: ProfilePointId, x: number, y: number, record = true) => {
+    const next: ProfilePoint = {
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+      source: 'manual',
+      confirmed: true,
+    };
+    if (samePoint(points[id], next)) return;
+    if (record) save();
+    setPoints((p) => ({ ...p, [id]: next }));
     setConfirmed(false);
+  };
+  const finishGesture = () => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (!g?.id || !g.points) return;
+    // A gesture creates one undo entry only when its final point differs.
+    if (samePoint(g.points[g.id], points[g.id])) setConfirmed(g.confirmed ?? false);
+    else save(g.points);
   };
   const load = async (file?: File) => {
     if (!file) return;
@@ -181,7 +199,6 @@ export default function Profile({
               aria-label="Photo de profil et repères manuels"
               onPointerDown={(e) => {
                 if (e.button !== 0) return;
-                save();
                 svgRef.current?.setPointerCapture(e.pointerId);
                 const id = (e.target as SVGElement).dataset.point as ProfilePointId | undefined;
                 if (panMode) {
@@ -197,21 +214,23 @@ export default function Profile({
                 if (!p) return;
                 const active = id ?? selected;
                 setSelected(active);
-                setPoint(active, p.x, p.y);
                 gesture.current = {
                   id: active,
                   startX: e.clientX,
                   startY: e.clientY,
                   panX: pan.x,
                   panY: pan.y,
+                  points,
+                  confirmed,
                 };
+                if (!id) setPoint(active, p.x, p.y, false);
               }}
               onPointerMove={(e) => {
                 const g = gesture.current;
                 if (!g) return;
                 if (g.id) {
                   const p = coordinate(e.clientX, e.clientY);
-                  if (p) setPoint(g.id, p.x, p.y);
+                  if (p) setPoint(g.id, p.x, p.y, false);
                 } else {
                   const inverse = svgRef.current!.getScreenCTM()?.inverse();
                   if (!inverse) return;
@@ -220,12 +239,8 @@ export default function Profile({
                   setPan({ x: g.panX + current.x - start.x, y: g.panY + current.y - start.y });
                 }
               }}
-              onPointerUp={() => {
-                gesture.current = null;
-              }}
-              onPointerCancel={() => {
-                gesture.current = null;
-              }}
+              onPointerUp={finishGesture}
+              onPointerCancel={finishGesture}
             >
               <defs>
                 <clipPath id="profile-clip">
@@ -323,6 +338,7 @@ export default function Profile({
               <button
                 className="button secondary"
                 onClick={() => {
+                  if (!Object.keys(points).length) return;
                   save();
                   setPoints({});
                 }}
@@ -337,6 +353,7 @@ export default function Profile({
               <select
                 value={side}
                 onChange={(e) => {
+                  if (e.target.value === side) return;
                   setSide(e.target.value as ProfileAnalysis['side']);
                   setConfirmed(false);
                 }}
@@ -381,7 +398,6 @@ export default function Profile({
                     }
                     onChange={(e) => {
                       if (e.target.value === '') return;
-                      save();
                       const old = points[selected] ?? { x: 0.5, y: 0.5 };
                       setPoint(
                         selected,
@@ -396,7 +412,6 @@ export default function Profile({
                       )
                         return;
                       e.preventDefault();
-                      save();
                       const p = points[selected]!;
                       const step = (e.shiftKey ? 10 : 1) / Math.max(photo.width, photo.height);
                       setPoint(

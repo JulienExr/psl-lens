@@ -44,6 +44,9 @@ const viewNames: Record<string, string> = {
   front: 'Frontale',
   'oblique-left': 'Oblique gauche',
   'oblique-right': 'Oblique droite',
+  'non-frontal': 'Vue inclinée non frontale',
+  'orientation-unknown': 'Orientation inconnue',
+  'mixed-orientations': 'Orientations multiples',
   'profile-left': 'Profil gauche',
   'profile-right': 'Profil droit',
   'profile-unknown': 'Profil de côté non précisé',
@@ -230,7 +233,7 @@ export async function generateReportPdf(
     data.frontal?.measurements.filter((m) => m.value != null && Number.isFinite(m.value)).length ??
     0;
   paragraph(
-    `Source frontale : ${data.frontal ? label(data.frontal.source) : 'absente'}. Profils assistés : ${data.profiles.length}. Vues documentées : ${data.views.length}.`,
+    `Source automatique : ${data.frontal ? label(data.frontal.source) : 'absente'}. Profils assistés : ${data.profiles.length}. Vues documentées : ${data.views.length}.`,
   );
   paragraph(
     `Couverture descriptive frontale : ${availableFront} / ${data.frontal?.measurements.length ?? 0} mesures disponibles. Les profils sont documentés séparément.`,
@@ -281,7 +284,7 @@ export async function generateReportPdf(
   if (!data.frontal) paragraph('Aucune analyse frontale disponible.');
   else {
     paragraph(
-      'Mesures automatiques sur la vue frontale. Les valeurs temporelles agrégées peuvent différer de la construction de l’observation représentative.',
+      'Protocole frontal sur les observations automatiques, dont l’orientation réelle est indiquée dans les vues et la provenance. Les valeurs temporelles agrégées peuvent différer de la construction de l’observation représentative.',
       'muted',
       9,
     );
@@ -418,7 +421,7 @@ export async function generateReportPdf(
     heading('Repères et provenance');
     for (const [id, point] of Object.entries(profile.points))
       paragraph(
-        `${pointNames[id] ?? id} : ${label(point.source)}, ${point.confirmed ? 'confirmé' : 'non confirmé'} ; x=${finite(point.x, 3)}, y=${finite(point.y, 3)} (coordonnées normalisées).`,
+        `${pointNames[id] ?? id} : ${label(point.source)}, ${point.confirmed ? 'confirmé' : 'non confirmé'}${options.includeTechnical ? ` ; x=${finite(point.x, 3)}, y=${finite(point.y, 3)} (coordonnées normalisées)` : ''}.`,
         'muted',
         9,
       );
@@ -434,7 +437,10 @@ export async function generateReportPdf(
     );
     if (view.pose)
       paragraph(
-        `Pose : lacet ${finite(view.pose.yaw, 1)}°, tangage ${finite(view.pose.pitch, 1)}°, roulis ${finite(view.pose.roll, 1)}° ; source ${view.pose.source}.`,
+        view.pose.source === 'matrix' &&
+          [view.pose.yaw, view.pose.pitch, view.pose.roll].every(Number.isFinite)
+          ? `Pose : lacet ${finite(view.pose.yaw, 1)}°, tangage ${finite(view.pose.pitch, 1)}°, roulis ${finite(view.pose.roll, 1)}° ; source ${view.pose.source}.`
+          : 'Orientation indisponible : aucun angle mesuré validé.',
         'muted',
         9,
       );

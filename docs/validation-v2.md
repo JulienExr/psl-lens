@@ -221,3 +221,7 @@ perturbations synthétiques ne remplacent aucune de ces acquisitions réelles.
 Les formules et les choix de méthode figurent dans
 [l’analyse du profil](profile-analysis.md). La validité scientifique d’un score
 esthétique n’est pas établie par ces contrôles géométriques.
+
+## Tests d’association ajoutés le 25 octobre 2026
+
+La paire historique publique Capone de face et de profil est utilisée pour vérifier le parcours positif d’attestation du même sujet, les remplacements, le retrait de chaque analyse et la perte de confirmation au rechargement. La notice de la face et sa licence sont référencées dans `THIRD_PARTY_NOTICES.md`. Le couple Einstein/Capone vérifie désormais que les analyses restent individuelles sans attestation; aucune note multi-vues valide n’est affirmée pour ces personnes différentes. Cette fixture de face supplémentaire ne change pas les résultats numériques de l’évaluateur de profil ci-dessus et ne crée pas un jeu de référence expert.

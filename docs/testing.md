@@ -156,3 +156,12 @@ Le bilan chiffré des validations V1.1 est dans [le suivi](v1.1-progress.md).
 `npm run validate:profile` évalue la fixture publique annotée et une sensibilité synthétique explicite. Un chemin JSON permet d’évaluer un jeu volontaire/licencié selon le schéma documenté dans [validation-v2.md](validation-v2.md). Aucun résultat de répétabilité clinique ou de beauté ne découle de cette infrastructure.
 
 Les tests V2 couvrent transformations de similitude, rapport d’aspect, miroir, points manquants/dégénérés, formule multi-vues et contributions, recommandations et préférences, projection interactive et fallback2D, ouverture du PDF, contenu/options/accents, image exclue par défaut et incluse seulement après sélection, téléchargement réel depuis un profil public, combinaison face/profil et capture Advanced. Les requêtes distantes restent surveillées. Résultats et limites de matériel dans [v2-progress.md](v2-progress.md).
+
+## Corrections de revue finale du 25 octobre 2026
+
+- `tests/unit/pdf-v2.test.ts` : huit combinaisons réelles des options PDF, coordonnées détaillées réservées à l’annexe, scores/images conditionnels et orientation inconnue sans angles fictifs.
+- `tests/components/profile-editor.test.tsx` et `tests/e2e/profile-editor.spec.ts` : pan/zoom sans révocation ni historique parasite, modifications effectives et undo.
+- `tests/unit/view-association.test.ts`, `tests/components/report-association.test.tsx` et parcours Profile V2 : attestation des vues exactes, refus par défaut, révocation/remplacement/retrait, analyses individuelles préservées, annulation d’un export en cours.
+- `tests/unit/advanced-continuation.test.ts` et les assertions supplémentaires de score-availability : orientation oblique/inconnue réellement conservée et avertissement explicite, sans perte du score individuel indicatif.
+
+[Résultats et limites de ces corrections](final-review-corrections.md).

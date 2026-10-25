@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { confirmViewAssociation } from '../../src/vision/view-association';
 import { scoreMultiview } from '../../src/scoring/multiview';
 import { analyzeProfile } from '../../src/morphometry/profile';
 import { fixtureDetection, readyQuality } from '../fixtures/face';
@@ -42,7 +43,9 @@ it('keeps multiview conditional without removing the frontal score', () => {
   expect(scoreMultiview(null, [profile()]).score).toBeNull();
 });
 it('uses separate versioned contributions adding to its bounded score', () => {
-  const a = scoreMultiview(front(), [profile()]);
+  const f = front(),
+    p = profile();
+  const a = scoreMultiview(f, [p], confirmViewAssociation(f, [p]));
   expect(a.version).toBe('psl-multiview-2.0.0');
   expect(a.score).toBeGreaterThanOrEqual(0);
   expect(a.score).toBeLessThanOrEqual(8);
@@ -53,17 +56,20 @@ it('excludes duplicate invalid or unvalidated profile measurements and never mer
   const p = profile(),
     f = front();
   p.measurements.push({ ...p.measurements[0] });
-  const a = scoreMultiview(f, [p]);
+  const association = confirmViewAssociation(f, [p]);
+  const a = scoreMultiview(f, [p], association);
   expect(a.coverage).toBeLessThan(1);
   expect(a.categories.find((c) => c.id === 'nose-projection')?.score).toBeNull();
   p.quality.valid = false;
-  expect(scoreMultiview(f, [p]).score).toBeNull();
+  expect(scoreMultiview(f, [p], association).score).toBeNull();
 });
 it('chooses one complete profile deterministically and records its provenance', () => {
   const p = profile(),
     other = profile();
   p.createdAt = '2026-01-01';
   other.createdAt = '2026-02-01';
-  expect(scoreMultiview(front(), [p, other]).profileSourceId).toBe(other.id);
-  expect(scoreMultiview(front(), [other, p]).profileSourceId).toBe(other.id);
+  const f = front(),
+    association = confirmViewAssociation(f, [p, other]);
+  expect(scoreMultiview(f, [p, other], association).profileSourceId).toBe(other.id);
+  expect(scoreMultiview(f, [other, p], association).profileSourceId).toBe(other.id);
 });

@@ -16,7 +16,8 @@ import { FrontalScorePanel } from '../components/FrontalScorePanel';
 import { captureRecommendations } from '../recommendations';
 import { buildMeasurementGeometry } from '../vision/measurement-geometry';
 
-import type { ProfileAnalysis, StylePreferences } from '../types/v2';
+import type { ProfileAnalysis, StylePreferences, ViewAssociation } from '../types/v2';
+import { isViewAssociationConfirmed } from '../vision/view-association';
 import { buildReportData, exportReportData } from '../vision/report-data';
 import { ProfileResult } from '../components/ProfileResult';
 import { RecommendationsPanel } from '../components/RecommendationsPanel';
@@ -27,16 +28,28 @@ const PDFExportControls = lazy(() => import('../report/PDFExportControls'));
 export function Report({
   analysis,
   profiles = [],
+  association = null,
+  onAssociationChange,
+  onRemoveView,
 }: {
   analysis: AggregatedAnalysis | null;
   profiles?: ProfileAnalysis[];
+  association?: ViewAssociation | null;
+  onAssociationChange?: (confirmed: boolean) => void;
+  onRemoveView?: (id: string) => void;
 }) {
   const [showScore, setShowScore] = useState(true);
   const [preferences, setPreferences] = useState<StylePreferences>(DEFAULT_PREFERENCES);
   const [explorer, setExplorer] = useState(false);
   const [pdf, setPdf] = useState(false);
   const recommendations = recommendV2(analysis, profiles, preferences);
-  const data = buildReportData(analysis, profiles, recommendations);
+  const data = buildReportData(analysis, profiles, recommendations, association);
+  const associated = isViewAssociationConfirmed(analysis, profiles, association);
+  const reportRevision = JSON.stringify([
+    analysis?.id,
+    profiles.map((p) => p.id).sort(),
+    data.association?.confirmedAt,
+  ]);
   const exportReport = () => {
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(exportReportData(data, showScore), null, 2)], {
@@ -98,7 +111,12 @@ export function Report({
               <li key={v.id}>
                 {v.view} · {v.method === 'assisted' ? 'assistée' : 'automatique'} ·{' '}
                 {v.observationCount} observation(s) · {v.quality}
-                {v.pose ? ` · rotation observée ${v.pose.yaw.toFixed(0)}°` : ''}
+                {v.pose
+                  ? v.pose.source === 'matrix' &&
+                    [v.pose.yaw, v.pose.pitch, v.pose.roll].every(Number.isFinite)
+                    ? ` · rotation observée ${v.pose.yaw.toFixed(0)}° · inclinaison ${v.pose.pitch.toFixed(0)}°`
+                    : ' · orientation indisponible'
+                  : ''}
               </li>
             ))}
           </ul>
@@ -107,6 +125,41 @@ export function Report({
             ou le profil. Les côtés anatomiques des profils sont déclarés. Associez des vues de la
             même personne; aucun contrôle d’identité n’est effectué.
           </p>
+          {analysis && profiles.length > 0 && (
+            <div className="view-association">
+              <label className="profile-confirm">
+                <input
+                  type="checkbox"
+                  aria-label="Je confirme que les vues représentent la même personne"
+                  checked={associated}
+                  disabled={!onAssociationChange}
+                  onChange={(e) => onAssociationChange?.(e.target.checked)}
+                />
+                Je confirme que les vues représentent la même personne et souhaite les associer au
+                scoring multi-vues.
+              </label>
+              <p className="small muted">
+                Déclaration volontaire, sans reconnaissance d’identité. Cette confirmation reste
+                dans la session et est révoquée si une vue est remplacée, ajoutée ou retirée. Sans
+                confirmation, les analyses restent individuelles.
+              </p>
+            </div>
+          )}
+          {onRemoveView && (
+            <div className="profile-tools">
+              {analysis && (
+                <button className="button secondary" onClick={() => onRemoveView(analysis.id)}>
+                  Retirer l’analyse automatique
+                </button>
+              )}
+              {profiles.map((p) => (
+                <button key={p.id} className="button secondary" onClick={() => onRemoveView(p.id)}>
+                  Retirer le profil{' '}
+                  {p.side === 'left' ? 'gauche' : p.side === 'right' ? 'droit' : 'non précisé'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="profile-tools">
             <Link className="button secondary" to="/profile">
               Ajouter ou reprendre un profil
@@ -127,7 +180,9 @@ export function Report({
             <span className="eyebrow">PSL MULTI-VUES EXPÉRIMENTAL /8</span>
             <h2>
               {data.multiview.score === null
-                ? 'Complétez les vues pour cette estimation'
+                ? analysis && profiles.length && !associated
+                  ? 'Association des vues à confirmer'
+                  : 'Complétez les vues pour cette estimation'
                 : data.multiview.score.toFixed(2) + ' / 8'}
             </h2>
             <p>
@@ -205,7 +260,7 @@ export function Report({
           {pdf && (
             <ModuleBoundary>
               <Suspense fallback={<p role="status">Chargement du générateur PDF…</p>}>
-                <PDFExportControls data={data} allowScores={showScore} />
+                <PDFExportControls key={reportRevision} data={data} allowScores={showScore} />
               </Suspense>
             </ModuleBoundary>
           )}
@@ -278,6 +333,14 @@ function FrontalReport({
         </button>
       </div>
       <LocalNotice />
+      {analysis.views?.some((v) => v.view !== 'front') &&
+        !analysis.views?.some((v) => v.validatedFrontal) && (
+          <p className="capture-warning" role="status">
+            Estimation indicative : orientation oblique, inclinée ou inconnue. Aucune acquisition
+            frontale stabilisée n’a été validée. Consultez les vues réellement observées et les
+            avertissements du score.
+          </p>
+        )}
       <div className="report-summary">
         <div>
           <span className="mono">MESURES DISPONIBLES</span>
@@ -362,7 +425,7 @@ function FrontalReport({
             <p className="small muted">
               {analysis.preview
                 ? 'Repères superposés à votre capture.'
-                : 'Repères de l’observation frontale retenue. Aucune vidéo enregistrée.'}
+                : 'Repères de l’observation automatique retenue; orientation précisée dans la provenance. Aucune vidéo enregistrée.'}
             </p>
           </section>
           <section className="panel">

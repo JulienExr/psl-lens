@@ -112,23 +112,72 @@ async function inspect(bytes: Uint8Array) {
         : [],
     );
   // Text drawn by pdf-lib is hex encoded with WinAnsi; decode to inspect actual content.
-  const text = streams
-    .join('\n')
-    .replace(/<([0-9A-F]+)>/g, (_, hex: string) =>
+  const decodedStreams = streams.map((stream) =>
+    stream.replace(/<([0-9A-F]+)>/g, (_, hex: string) =>
       new TextDecoder('windows-1252').decode(
         Uint8Array.from(hex.match(/../g) ?? [], (v) => parseInt(v, 16)),
       ),
-    );
+    ),
+  );
+  const text = decodedStreams.join('\n');
   const images = doc.context
     .enumerateIndirectObjects()
     .filter(
       ([, obj]) =>
         obj instanceof PDFRawStream && obj.dict.get(PDFName.of('Subtype')) === PDFName.of('Image'),
     );
-  return { doc, text, images };
+  return { doc, text, images, decodedStreams };
 }
 
 describe('local V2 PDF', () => {
+  it.each([
+    { includePhotos: false, includeScores: false, includeTechnical: false },
+    { includePhotos: false, includeScores: false, includeTechnical: true },
+    { includePhotos: false, includeScores: true, includeTechnical: false },
+    { includePhotos: false, includeScores: true, includeTechnical: true },
+    { includePhotos: true, includeScores: false, includeTechnical: false },
+    { includePhotos: true, includeScores: false, includeTechnical: true },
+    { includePhotos: true, includeScores: true, includeTechnical: false },
+    { includePhotos: true, includeScores: true, includeTechnical: true },
+  ])('exports only opted-in PDF data with %j', async (options) => {
+    const { text, images, decodedStreams } = await inspect(
+      await generateReportPdf(pdfFixture(), options),
+    );
+
+    // Descriptive measurements, vector diagrams and source summaries remain available.
+    expect(text).toContain('Angle nasofacial : 28.5');
+    expect(text).toContain('Constructions frontales');
+    expect(text).toContain('Repères confirmés uniquement');
+    expect(text).toContain('Source : import local');
+    expect(text).toContain('Nasion : manuel, confirmé');
+    const profileDiagram = decodedStreams.find((stream) =>
+      stream.includes('Repères confirmés uniquement'),
+    );
+    // The confirmed profile diagram contains its contour, angle strokes and landmark circles.
+    expect(profileDiagram?.match(/\nS\n/g)?.length ?? 0).toBeGreaterThan(10);
+    expect(profileDiagram?.match(/ c\n/g)?.length ?? 0).toBeGreaterThanOrEqual(12);
+
+    const coordinates = ['x=0.600, y=0.200', 'x=0.300, y=0.400', 'x=0.500, y=0.500'];
+    for (const coordinate of coordinates)
+      expect(text.includes(coordinate), coordinate).toBe(options.includeTechnical);
+    if (options.includeTechnical) {
+      expect(text).toContain('coordonnées normalisées');
+      expect(text).toContain('180 / pi');
+    } else {
+      expect(text).not.toContain('coordonnées normalisées');
+      expect(text).not.toContain('180 / pi');
+    }
+    if (options.includeScores) {
+      expect(text).toContain('Scores indicatifs');
+      expect(text).toContain('7.12 / 8');
+    } else {
+      expect(text).not.toContain('Scores indicatifs');
+      expect(text).not.toContain('7.12');
+      expect(text).not.toContain('psl-multiview-2.0.0');
+    }
+    if (options.includePhotos) expect(images.length).toBeGreaterThan(0);
+    else expect(images).toHaveLength(0);
+  });
   it('discards a pending scored PDF when scores are masked and clears the previous score choice', async () => {
     let resolve!: (bytes: Uint8Array) => void;
     const pending = new Promise<Uint8Array>((complete) => {
@@ -279,4 +328,19 @@ describe('local V2 PDF', () => {
     expect(text).toContain('non confirmé');
     expect(images).toHaveLength(0);
   });
+});
+
+it('labels an unavailable observation pose without inventing zero-degree orientation', async () => {
+  const data = pdfFixture();
+  data.views[0].view = 'orientation-unknown';
+  data.views[0].pose = { yaw: 0, pitch: 0, roll: 0, source: 'unavailable' };
+  const { text } = await inspect(
+    await generateReportPdf(data, {
+      includePhotos: false,
+      includeScores: false,
+      includeTechnical: false,
+    }),
+  );
+  expect(text).toContain('Orientation indisponible');
+  expect(text).not.toContain('Pose : lacet 0.0');
 });

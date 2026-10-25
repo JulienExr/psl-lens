@@ -11,3 +11,9 @@ Le JSON `psl-report-2.0.0` conserve les mesures/provenances, profils sans images
 ## Vérification
 
 Tests pdf-lib : ouverture des vrais octets, pages, textes/accents, options techniques, absence/présence d’images et scores selon options. Un exemple synthétique long de 13 pages a été ouvert avec Poppler et rendu en PNG; des pages détaillées et une planche contact ont été inspectées, avec correction des titres orphelins et d’une collision d’annotation. Artefacts locaux ignorés dans `artifacts/v2-pdf-qa/`. Le parcours E2E réalise un téléchargement depuis une vraie photo publique de profil. Les résultats finaux figurent dans [v2-progress.md](v2-progress.md).
+
+## Revue finale du 25 octobre 2026
+
+Les coordonnées normalisées détaillées x/y des repères de profil sont réservées à l’option technique. Les mesures, origines des points et schémas prévus restent disponibles sans annexe. Les tests décodent le contenu de vrais PDF pour les huit combinaisons photos/scores/technique, et contrôlent également les objets image et les tracés vectoriels.
+
+Le score multi-vues n’est disponible qu’après confirmation explicite d’association des vues. Les contrôles d’export sont recréés si les vues ou cette attestation changent; un PDF en cours sur l’ancien état est écarté. L’attestation reste interne à la session et n’est pas restaurée par le rapport JSON.

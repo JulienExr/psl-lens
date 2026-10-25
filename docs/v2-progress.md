@@ -34,3 +34,7 @@ Le moteur latéral est assisté. La déclaration de profil strict et du côté n
 Une seule photographie historique publique est disponible, annotée par un seul opérateur. Angle exact inconnu, cou masqué. Aucune cohorte consentante avec acquisitions répétées, vérité experte ou précision indépendante. L’évaluateur permet de fournir ces données ultérieurement et sépare explicitement les perturbations synthétiques. Voir [validation-v2.md](validation-v2.md). Mesurer un angle ou la répétabilité ne valide pas un score de beauté.
 
 Safari iOS, Android et la fluidité sur capteurs/appareils réels restent à vérifier manuellement. Les moteurs Firefox/WebKit automatisés ne les remplacent pas. Profil automatique spécialisé, segmentation robuste de silhouette et reconstruction métrique sont reportés. Les modules facultatifs inutilisés restent indisponibles hors ligne tant qu’ils n’ont pas été téléchargés.
+
+## Revue finale — 25 octobre 2026
+
+Les quatre corrections de confidentialité PDF, confirmation d’éditeur, association volontaire des vues et provenance réelle sont documentées dans [final-review-corrections.md](final-review-corrections.md), avec leurs régressions, résultats et limites. Le bilan ci-dessus conserve les chiffres historiques de la première livraison.

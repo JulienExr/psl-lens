@@ -1,10 +1,19 @@
 import type { AggregatedAnalysis } from '../types';
-import type { ProfileAnalysis, Recommendation, ReportData, ViewSummary } from '../types/v2';
+import type {
+  ProfileAnalysis,
+  Recommendation,
+  ReportData,
+  ViewSummary,
+  ViewAssociation,
+} from '../types/v2';
+import { classifyObservedView } from './orientation';
+import { isViewAssociationConfirmed } from './view-association';
 import { scoreMultiview } from '../scoring/multiview';
 export function buildReportData(
   frontal: AggregatedAnalysis | null,
   profiles: ProfileAnalysis[],
   recommendations: Recommendation[] = [],
+  association: ViewAssociation | null = null,
 ): ReportData {
   const views: ViewSummary[] = [
     ...(frontal?.views ??
@@ -12,7 +21,8 @@ export function buildReportData(
         ? [
             {
               id: frontal.id,
-              view: 'front' as const,
+              view: classifyObservedView(frontal.representative.pose),
+              validatedFrontal: false,
               method: 'automatic' as const,
               source: frontal.source,
               observationCount: frontal.morphometryCount,
@@ -37,7 +47,8 @@ export function buildReportData(
   return {
     frontal,
     profiles,
-    multiview: scoreMultiview(frontal, profiles),
+    association: isViewAssociationConfirmed(frontal, profiles, association) ? association : null,
+    multiview: scoreMultiview(frontal, profiles, association),
     views,
     recommendations,
   };
