@@ -114,7 +114,7 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
           <strong>{analysis.observationCount}</strong>
         </div>
         <div>
-          <span className="mono">OBSERVATIONS FRONTALES</span>
+          <span className="mono">OBSERVATIONS MESURÉES</span>
           <strong>{analysis.morphometryCount}</strong>
         </div>
         <div>

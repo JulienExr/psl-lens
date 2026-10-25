@@ -37,12 +37,16 @@ describe('frontal report evidence', () => {
     expect(metric.retention).toBe(0.625);
     expect(metric.confidence).toBe('low');
     expect(metric.reliabilityReason).toBe('outliers');
-    expect(report.frontalScore.score).toBeNull();
+    expect(report.frontalScore.score).not.toBeNull();
+    expect(report.frontalScore.reliability).toBe('limited');
   });
-  it('scores a stable Quick Scan and refuses a series containing oblique score inputs', () => {
+  it('scores a stable Quick Scan and warns about oblique score inputs', () => {
     const observations = Array.from({ length: 16 }, (_, i) => observation(i));
     expect(aggregate(observations, 'guided').frontalScore.score).not.toBeNull();
     observations[0].detection.pose.yaw = 10;
-    expect(aggregate(observations, 'guided').frontalScore.score).toBeNull();
+    expect(aggregate(observations, 'guided').frontalScore).toMatchObject({
+      score: expect.any(Number),
+      reliability: 'limited',
+    });
   });
 });

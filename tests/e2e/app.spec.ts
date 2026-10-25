@@ -57,10 +57,9 @@ test('real local MediaPipe photo → measures → export → erase; no remote re
   expect(overlay.height).toBeLessThan(1);
   await page.getByRole('button', { name: 'Découvrir mon rapport' }).click();
   await expect(page.getByText('PSL complet : indisponible')).toBeVisible();
-  // This real portrait is descriptive-ready but exceeds the stricter ±8°
-  // scoring pose gate. Do not weaken the protocol to manufacture a score.
-  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText('—');
-  await expect(page.getByText(/Pose trop oblique ou inconnue/)).toBeVisible();
+  // The measured portrait now keeps its estimate with a pose warning.
+  await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
+  await expect(page.getByText(/Pose oblique ou inconnue/)).toBeVisible();
   await expect(page.locator('.measurement-card')).toHaveCount(15);
   await page.getByRole('button', { name: 'Yeux', exact: true }).click();
   await expect(page.locator('.measurement-card')).toHaveCount(4);

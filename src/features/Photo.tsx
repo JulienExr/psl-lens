@@ -66,7 +66,7 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
       const q = assessQuality(detection, detection.pixels ?? null);
       setResult(detection);
       setQuality(q);
-      if (!q.valid || !q.frontal)
+      if (!measure(detection, q, { allowApproximate: true }).some((m) => m.value !== null))
         setError(
           q.issues.length
             ? q.issues.join(' ')
@@ -84,9 +84,21 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
     }
   };
   const report = () => {
-    if (!result || !quality?.valid || !quality.frontal) return;
+    if (
+      !result ||
+      !quality ||
+      !measure(result, quality, { allowApproximate: true }).some((m) => m.value !== null)
+    )
+      return;
     const analysis = aggregate(
-      [{ detection: result, quality, measurements: measure(result, quality), stage: 'front' }],
+      [
+        {
+          detection: result,
+          quality,
+          measurements: measure(result, quality, { allowApproximate: true }),
+          stage: 'front',
+        },
+      ],
       'photo',
     );
     onReport({ ...analysis, preview, profileProvided: Boolean(profile) });
@@ -100,6 +112,11 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
     setError('');
     setBusy(false);
   };
+  const canReport = Boolean(
+    result &&
+    quality &&
+    measure(result, quality, { allowApproximate: true }).some((m) => m.value !== null),
+  );
   return (
     <div className="workspace page-width">
       <div className="page-heading">
@@ -182,6 +199,15 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
           {error && (
             <div role="alert" className="error-message">
               {error}
+            </div>
+          )}
+          {canReport && quality && (!quality.valid || !quality.frontal) && (
+            <div role="status" className="capture-warning">
+              <strong>Estimation disponible · capture à améliorer</strong>
+              <p>
+                {quality.issues.join(' ') || 'Une vue de face améliorera la fiabilité.'} Le score
+                reste accessible avec un avertissement.
+              </p>
             </div>
           )}
           {result && (
@@ -281,11 +307,7 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
               </button>
             )}
           </section>
-          <button
-            className="button primary full"
-            disabled={busy || !quality?.valid || !quality.frontal}
-            onClick={report}
-          >
+          <button className="button primary full" disabled={busy || !canReport} onClick={report}>
             Découvrir mon rapport
             <ArrowRight size={18} />
           </button>

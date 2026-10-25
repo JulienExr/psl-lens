@@ -69,9 +69,10 @@ n’effectue un déploiement ou un push.
     reprise après panne worker : anciennes pistes arrêtées, nouvelle session
     préservée, absence d’alerte pour une annulation volontaire.
 11. Effacement réel des pixels Canvas après arrêt et changement de couche.
-12. Photo frontale synthétique de test : score limité; Quick Scan par défaut :
-    16 observations, score stabilisé. Le portrait réel de test dépasse ±8° et
-    garde une note refusée, sans suppression des mesures descriptives.
+12. Photo frontale synthétique : score limité; Quick Scan : 16 observations,
+    score stabilisé. Le portrait réel dépasse ±8° et conserve désormais une note
+    indicative avec avertissement. Les captures floues/sombres/obliques accèdent
+    au rapport; le Live et le scan guidé offrent une estimation immédiate.
 13. Sources vidéo synthétiques portrait et paysage, cinq largeurs et changement
     d’orientation du viewport : rapport d’aspect source, boîtes et miroir
     communs au Canvas et à la vidéo. Ceci ne simule pas un capteur physique.
