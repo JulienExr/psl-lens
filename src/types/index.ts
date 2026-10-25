@@ -1,3 +1,4 @@
+import type { MeasurementProvenance, ViewSummary } from './v2';
 export interface Landmark {
   x: number;
   y: number;
@@ -53,6 +54,7 @@ export interface Measurement {
   samples?: number;
   retention?: number;
   rawSpread?: number;
+  provenance?: MeasurementProvenance;
   reliabilityReason?:
     'single-photo' | 'insufficient-samples' | 'dispersion' | 'outliers' | 'capture-quality';
 }
@@ -103,6 +105,7 @@ export interface AggregatedAnalysis {
   measurements: Measurement[];
   score: PSLResult;
   frontalScore: FrontalPSLResult;
+  views?: ViewSummary[];
   scan?: { mode: ScanMode; consistency: ScanConsistency };
   captureIssues?: string[];
   observationCount: number;

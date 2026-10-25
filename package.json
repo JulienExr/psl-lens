@@ -1,6 +1,6 @@
 {
   "name": "psl-lens",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -24,11 +24,13 @@
     "test:pwa": "npm run build && playwright test --config playwright.production.config.ts",
     "test:compat": "playwright test --config playwright.compat.config.ts",
     "test:pwa-update": "playwright test --config playwright.pwa-update.config.ts",
-    "test:performance": "playwright test --config playwright.performance.config.ts"
+    "test:performance": "playwright test --config playwright.performance.config.ts",
+    "validate:profile": "node scripts/evaluate-profile.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",
     "lucide-react": "^1.59.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4"

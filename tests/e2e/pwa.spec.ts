@@ -70,3 +70,53 @@ test('production CSP, real inference, static-only PWA cache and offline shell', 
     { timeout: 60000 },
   );
 });
+
+test('native PDF remains available offline after explicit module use, without caching photos', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await page.getByRole('link', { name: 'Profil', exact: true }).click();
+  await page
+    .getByLabel('Importer une photo de profil', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-profile.jpg'));
+  const { placeReferenceProfile } = await import('./profile-helpers');
+  await placeReferenceProfile(page);
+  await page.getByRole('button', { name: 'Préparer le PDF' }).click();
+  await expect(page.getByRole('button', { name: 'Télécharger le PDF' })).toBeVisible();
+  // The generator has a nested lazy pdf-lib dependency; first local export loads it.
+  let event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Télécharger le PDF' }).click();
+  await event;
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const entries = await Promise.all(
+          (await caches.keys()).map(async (k) =>
+            (await (await caches.open(k)).keys()).map((r) => r.url),
+          ),
+        );
+        return entries.flat().some((u) => u.includes('PDFExportControls'));
+      }),
+    )
+    .toBe(true);
+  await context.setOffline(true);
+  event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Télécharger le PDF' }).click();
+  expect((await event).suggestedFilename()).toBe('psl-lens-rapport.pdf');
+  const entries = await page.evaluate(async () => {
+    const all = await Promise.all(
+      (await caches.keys()).map(async (k) =>
+        (await (await caches.open(k)).keys()).map((r) => r.url),
+      ),
+    );
+    return all.flat();
+  });
+  expect(
+    entries.some((u) => u.startsWith('data:') || u.includes('capone') || u.startsWith('blob:')),
+  ).toBe(false);
+});

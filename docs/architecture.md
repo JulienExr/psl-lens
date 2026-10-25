@@ -102,7 +102,12 @@ contraintes de remplacement des versions sur l’hébergeur.
 
 ## Décisions de portée
 
-Ni backend, ni authentification, ni variables secrètes. Pas de profil 3D, pas
-de détection d’identité, pas de prédiction démographique. Le profil facultatif
-sert uniquement de prévisualisation. Les conseils sont locaux, neutres et
-concernent les conditions de capture et la présentation.
+Ni backend, ni authentification, ni variables secrètes, ni détection d’identité ou prédiction démographique. Les conseils sont locaux, fondés sur les données disponibles et les préférences déclarées.
+
+## Modules V2
+
+`types/v2.ts` sépare ProfileAnalysis, ViewSummary, MeasurementProvenance et ReportData. App garde frontal, profils et éventuelle photo capturée en mémoire; effacement réinitialise les trois. Les imports Photo et captures Advanced associent explicitement les acquisitions courantes. Les profils se remplacent par côté déclaré. Un nouveau frontal remplace l’ancien contexte; aucun contrôle d’identité n’est impliqué.
+
+`morphometry/profile/index.ts` calcule des constructions 2D sur les points confirmés. Aucune inférence MediaPipe stricte90° n’est détournée. `scoring/multiview.ts` reste indépendant du frontal. `vision/report-data.ts` construit le rapport et l’export JSON versionné sans images/coordonnées brutes. Voir [profil](profile-analysis.md) et [multi-vues](multiview.md).
+
+La route Profile, le générateur PDF et GeometryExplorer sont des imports dynamiques. pdf-lib se charge sur demande. Le générateur de service worker lit le manifeste Vite et précache la fermeture statique de l’entrée ainsi que le moteur frontal; les modules facultatifs sont cachés uniquement à leur première utilisation. Chaque chemin est explicitement autorisé. Voir [PWA V2](pwa-v2.md). Le Canvas de l’explorateur projette des points de profondeur relative avec une échelle uniforme; aucune boucle de dessin inactive, aucun modèle3D supplémentaire.

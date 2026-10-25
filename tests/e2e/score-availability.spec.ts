@@ -25,6 +25,10 @@ test('poor photo quality warns but does not prevent reaching a numeric score', a
   await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
   await expect(page.locator('.score-reasons')).toContainText('floue');
   await expect(page.locator('.score-reliability')).toContainText('Fiabilité limitée');
+  await expect(page.locator('.v2-report')).toContainText('oblique-left');
+  await expect(page.locator('.capture-warning').first()).toContainText(
+    'Aucune acquisition frontale stabilisée',
+  );
 });
 
 test('Live can create an indicative score from its first measurable poor-quality frame', async ({
@@ -41,6 +45,10 @@ test('Live can create an indicative score from its first measurable poor-quality
   await page.getByRole('button', { name: 'Créer mon rapport' }).click();
   await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
   await expect(page.locator('.score-reliability')).toContainText('Fiabilité limitée');
+  await expect(page.locator('.v2-report')).toContainText('oblique-left');
+  await expect(page.locator('.capture-warning').first()).toContainText(
+    'Aucune acquisition frontale stabilisée',
+  );
 });
 
 test('guided scan offers an immediate estimate even when quality prevents stabilization', async ({
@@ -58,5 +66,9 @@ test('guided scan offers an immediate estimate even when quality prevents stabil
     .click({ timeout: 2000 });
   await expect(page.getByLabel('Score PSL frontal expérimental')).toHaveText(/^\d\.\d{2}$/);
   await expect(page.locator('.score-reliability')).toContainText('Fiabilité limitée');
+  await expect(page.locator('.v2-report')).toContainText('oblique-left');
+  await expect(page.locator('.capture-warning').first()).toContainText(
+    'Aucune acquisition frontale stabilisée',
+  );
   await expect(page.getByText('Continuité géométrique cohérente')).toHaveCount(0);
 });

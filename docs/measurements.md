@@ -112,3 +112,7 @@ Aucune confiance « élevée » n’est attribuée.
 Cette dispersion n’est pas un intervalle statistique calibré. Une photo unique
 ne permet pas de l’estimer; ses dispersions restent indisponibles plutôt que nulles au sens numérique de zéro. La précision absolue et l’absence de biais ne sont
 pas garanties par une faible dispersion.
+
+## Mesures latérales V2
+
+Les 15 constructions frontales restent compatibles. Un moteur séparé `profile-2d-2.0.0` calcule jusqu’à sept indicateurs apparents à partir de points manuels confirmés : projection relative nez/menton, angle N–Sn–Pg, offsets des lèvres à la ligne nez–menton, part inférieure Sn–Me/N–Me et angle menton–cou facultatif. Les calculs convertissent d’abord les coordonnées normalisées en pixels, puis utilisent un repère local N–Me et une normale orientée vers le nez. Pas de mélange d’angles, de dimension physique ou de projection osseuse. Formules et conditions : [profil assisté](profile-analysis.md). Validation réalisable et jeux de données manquants : [validation V2](validation-v2.md).

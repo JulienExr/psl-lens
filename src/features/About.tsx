@@ -33,6 +33,24 @@ export function About() {
         </p>
       </section>
       <section>
+        <h2>Le profil, avec votre validation</h2>
+        <p>
+          Advanced Scan acquiert la face et deux obliques compatibles avec le modèle. Un profil
+          strict peut perdre le suivi automatique : une capture latérale volontaire ou une photo
+          importée ouvre alors le placement assisté. Cinq repères nécessaires et trois facultatifs
+          définissent jusqu’à sept mesures cutanées apparentes. Le côté anatomique et la vue
+          latérale sont déclarés par vous; ils ne sont pas certifiés automatiquement.
+        </p>
+        <p>
+          La visualisation interactive représente une profondeur relative estimée, avec rotation et
+          zoom. Aucune reconstruction anatomique exacte ou dimension physique n’est fournie. Les
+          limites de pose, de perspective et de placement restent présentes dans les résultats.
+        </p>
+        <Link className="text-link" to="/profile">
+          Explorer un profil assisté
+        </Link>
+      </section>
+      <section>
         <FlaskConical />
         <h2>Une heuristique assumée</h2>
         <p>
@@ -45,9 +63,10 @@ export function About() {
           Le protocole frontal expérimental utilise ses propres poids 30/25/20/25 %. Une capture
           mesurable garde sa note; une qualité insuffisante déclenche un avertissement. Si des
           mesures manquent, le calcul utilise les seules entrées disponibles et affiche sa
-          couverture. Une photo unique garde une fiabilité limitée. Le PSL complet historique reste
-          indisponible : la projection du profil n’est pas validée. La notation et ses contributions
-          sont inspectables et masquables.
+          couverture. Une photo unique garde une fiabilité limitée. Le protocole historique reste
+          séparé. La V2 ajoute une estimation multi-vues distincte (70 % frontal, 30 % profil),
+          uniquement avec des mesures latérales confirmées. Les cibles restent arbitraires. La
+          notation et ses contributions sont inspectables et masquables.
         </p>
         <p className="score-disclaimer">{DISCLAIMER}</p>
       </section>
@@ -62,8 +81,11 @@ export function About() {
         <p>
           Les données faciales restent en mémoire. « Effacer la session » libère les résultats et le
           moteur; un rechargement les supprime également. Une exportation JSON, déclenchée par vous,
-          contient uniquement les mesures, sans photo ni landmarks. La caméra s’arrête lorsque vous
-          quittez le studio, masquez la page ou fermez l’onglet. Le microphone n’est jamais demandé.
+          contient les mesures et leur provenance, sans photo ni coordonnées brutes. Le PDF est
+          généré localement : photos, scores et détails techniques sont exclus par défaut et
+          demandent une sélection explicite. Les conseils de présentation dépendent de vos
+          préférences déclarées. La caméra s’arrête lorsque vous quittez le studio, masquez la page
+          ou fermez l’onglet. Le microphone n’est jamais demandé.
         </p>
         <p>
           La PWA met en cache uniquement des fichiers statiques, le modèle et le WASM. Le

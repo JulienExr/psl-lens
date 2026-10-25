@@ -13,18 +13,11 @@ ferme le worker et le moteur, libère les références React et supprime le rapp
 Comme pour toute application JavaScript, la collecte physique de mémoire est
 gérée par le navigateur; aucune garantie d’effacement bas niveau n’est formulée.
 
-Le fichier de profil facultatif est une prévisualisation en mémoire. L’export
-JSON est une action explicite qui écrit les mesures et éventuellement les
-scores et métadonnées du scan dans le dossier de téléchargement choisi. Il ne contient ni
-photographie ni coordonnées faciales.
+Les photos de profil et les points assistés sont gardés uniquement en mémoire. Une capture latérale Live est créée après clic explicite; aucune sélection automatique de frames n’enregistre d’image. Le rapport frontal Live conserve uniquement les repères.
 
-Le bouton « Imprimer / PDF » ouvre le dialogue local du navigateur. Le choix
-de destination, les sauvegardes et le spool d’impression relèvent du navigateur
-et du système. Une photo importée visible peut être incluse dans l’impression;
-la décocher pour l’exclure. Aucune capture Live représentative n’est conservée
-en V1.1 : le rapport Live montre uniquement les repères de l’observation retenue.
-Cette option secondaire est reportée; elle nécessiterait une action de
-consentement et un effacement en mémoire testés.
+Le JSON volontaire `psl-report-2.0.0` écrit mesures/provenances, profils sans images ni coordonnées brutes, vues et conseils. Les scores sont exclus lorsque la notation est masquée. Le PDF natif est généré localement avec pdf-lib chargé à la demande. Photos, scores et détails techniques sont décochés par défaut; les photos sont intégrées uniquement après sélection explicite. Le masquage global empêche l’inclusion des scores. Aucun choix ne persiste entre sessions. La photo de rapport est masquée par défaut.
+
+Les téléchargements déjà sauvegardés sont sous le contrôle du navigateur et du système; l’effacement de session ne supprime pas ces fichiers. Le PDF et le JSON ne sont jamais envoyés à un serveur. Voir [les exports V2](report-v2.md).
 
 ## Réseau
 
@@ -71,3 +64,9 @@ Les en-têtes Cloudflare fournis interdisent microphone/géolocalisation, framin
 plugins et ressources externes. Le CSP permet `wasm-unsafe-eval` pour WASM et
 les styles inline pour les dimensions/visualisations React; il n’autorise pas
 `unsafe-eval` JavaScript. Aucun secret dans le frontend.
+
+## Corrections de revue finale — 25 octobre 2026
+
+Les valeurs numériques normalisées x/y des repères de profil ne figurent dans le PDF que si l’option technique est explicitement sélectionnée. Sans cette option, les mesures descriptives, diagrammes vectoriels et indications de provenance restent présents. Les diagrammes représentent donc toujours la géométrie; cette option retire les coordonnées détaillées, elle ne rend pas la forme anonyme. Les photographies restent exclues par défaut et les scores ne sont exportés que si leur option est active.
+
+Associer les analyses automatiques et latérales au score multi-vues demande une confirmation volontaire qu’elles représentent la même personne. Aucun contrôle biométrique n’est ajouté. Cette attestation est liée aux identifiants exacts des vues et reste uniquement dans l’état de session : ni stockage persistant, ni export/réimport de l’attestation. Elle est révoquée après remplacement, ajout ou retrait d’une vue, effacement ou rechargement. Les analyses individuelles restent disponibles sans attestation. Changer cette association ou retirer une vue démonte les contrôles PDF et invalide aussi un export encore en cours.

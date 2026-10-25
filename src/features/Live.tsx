@@ -17,16 +17,22 @@ import { useCamera } from '../hooks/useCamera';
 import type { Layer } from '../components/Mesh';
 import { LiveMesh, type LiveMeshHandle } from '../components/LiveMesh';
 import { LayerControls, LocalNotice, Loading } from '../components/Controls';
-import { advanceScan, initialScan, getScanStages } from '../vision/scan';
+import { advanceScan, initialScan, getScanStages, restartScanStage } from '../vision/scan';
 import { aggregate } from '../vision/temporal';
+import { buildAdvancedContinuation } from '../vision/advanced';
 import { visionClient } from '../vision/client';
+import type { ProfilePhoto } from './Profile';
 import { definitions, measure } from '../morphometry/metrics';
 
 export function Live({
   guided = false,
   onReport,
+  advanced = false,
+  onProfile,
 }: {
   guided?: boolean;
+  advanced?: boolean;
+  onProfile?: (photo: ProfilePhoto | undefined, frontal?: AggregatedAnalysis) => void;
   onReport: (r: AggregatedAnalysis) => void;
 }) {
   const [layer, setLayer] = useState<Layer>('mesh');
@@ -38,10 +44,12 @@ export function Live({
   const timing = useRef<{ at: number; render: number; latency: number }[]>([]);
   const lastStats = useRef(0);
   const [stats, setStats] = useState({ frequency: 0, render: 0, latency: 0 });
-  const [scan, setScan] = useState(initialScan);
-  const scanRef = useRef(initialScan());
+  const [scan, setScan] = useState(() => initialScan(advanced ? 'multi-angle' : 'quick'));
+  const scanRef = useRef(initialScan(advanced ? 'multi-angle' : 'quick'));
   const observations = useRef<ScanObservation[]>([]);
   const [count, setCount] = useState(0);
+  const [advancedFront, setAdvancedFront] = useState<AggregatedAnalysis | null>(null);
+  const [captureError, setCaptureError] = useState('');
   const observe = useCallback(
     (observation: ScanObservation) => {
       const render = meshRef.current?.draw(observation.detection) ?? 0;
@@ -72,20 +80,21 @@ export function Live({
         ];
         setCount(observations.current.length);
       }
-      if (guided) {
+      if (guided && !scanRef.current.complete) {
         const next = advanceScan(scanRef.current, observation);
         scanRef.current = next;
         setScan(next);
-        if (next.complete)
-          onReport(
-            aggregate(next.observations, 'guided', next.rejected, {
-              scanMode: next.mode,
-              captureIssues: [...captureIssues.current],
-            }),
-          );
+        if (next.complete) {
+          const result = aggregate(next.observations, 'guided', next.rejected, {
+            scanMode: next.mode,
+            captureIssues: [...captureIssues.current],
+          });
+          if (advanced) setAdvancedFront(result);
+          else onReport(result);
+        }
       }
     },
-    [guided, onReport],
+    [guided, onReport, advanced],
   );
   const { videoRef, ...camera } = useCamera(observe);
   useEffect(() => {
@@ -94,6 +103,7 @@ export function Live({
   const reset = () => {
     scanRef.current = initialScan(scanRef.current.mode);
     setScan(scanRef.current);
+    setAdvancedFront(null);
     observations.current = [];
     setCount(0);
     captureIssues.current.clear();
@@ -120,6 +130,34 @@ export function Live({
   const progress = guided
     ? Math.round((scan.observations.length / stages.reduce((sum, s) => sum + s.required, 0)) * 100)
     : 0;
+  const captureProfile = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight || !onProfile) return;
+    try {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Capture indisponible. Importez une photo de profil.');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const photo = {
+        preview: canvas.toDataURL('image/jpeg', 0.9),
+        width: canvas.width,
+        height: canvas.height,
+        source: 'live-capture' as const,
+      };
+      const frontal =
+        advancedFront ??
+        buildAdvancedContinuation(scanRef.current, observations.current, [
+          ...captureIssues.current,
+        ]);
+      camera.stop();
+      onProfile(photo, frontal);
+    } catch (e) {
+      setCaptureError(e instanceof Error ? e.message : 'Capture impossible.');
+    }
+  };
   const selectedMeasurement = definitions.find((m) => m.id === measurementId);
   return (
     <div className="page-width workspace">
@@ -129,7 +167,11 @@ export function Live({
             {guided ? 'ACQUISITION MULTI-ANGLES' : 'VOTRE LABORATOIRE PERSONNEL'}
           </span>
           <h1>
-            {guided ? 'Un scan. Plusieurs perspectives.' : 'Le studio Live.'}
+            {advanced
+              ? 'Advanced Scan.'
+              : guided
+                ? 'Un scan. Plusieurs perspectives.'
+                : 'Le studio Live.'}
             <span className="heading-dot">●</span>
           </h1>
           <p>
@@ -145,6 +187,63 @@ export function Live({
         </Link>
       </div>
       <LocalNotice />
+      {advanced && (
+        <section className="panel advanced-intro">
+          <span className="eyebrow">FACE → OBLIQUES → PROFIL ASSISTÉ</span>
+          <h2>
+            {advancedFront
+              ? 'Les vues automatiques sont acquises.'
+              : 'Une acquisition en deux temps.'}
+          </h2>
+          <p>
+            Face et rotations ±22° : mesures frontales et contrôle de continuité automatiques. Pour
+            le profil, tournez de côté et déclenchez une photo; vous validerez ensuite les repères.
+            La photo est conservée uniquement en mémoire après votre action. L’aperçu miroir ne
+            modifie pas la capture.
+          </p>
+          <div className="profile-tools">
+            <button
+              className="button primary"
+              disabled={!active || camera.paused}
+              onClick={captureProfile}
+            >
+              Capturer une photo latérale
+            </button>
+            {advancedFront && (
+              <button
+                className="button secondary"
+                onClick={() => {
+                  camera.stop();
+                  onReport(advancedFront);
+                }}
+              >
+                Voir le rapport sans profil
+              </button>
+            )}
+            <button
+              className="button secondary"
+              onClick={() => {
+                camera.stop();
+                onProfile?.(
+                  undefined,
+                  advancedFront ??
+                    buildAdvancedContinuation(scanRef.current, observations.current, [
+                      ...captureIssues.current,
+                    ]),
+                );
+              }}
+            >
+              Importer un profil à la place
+            </button>
+          </div>
+          {captureError && <p role="alert">{captureError}</p>}
+          <p className="small muted">
+            Côté anatomique déclaré dans l’éditeur. À forte rotation, la pose du modèle peut
+            disparaître : la capture photo reste disponible.
+          </p>
+        </section>
+      )}
+
       <div className="studio-grid">
         <section className="camera-panel">
           <div className="panel-top">
@@ -320,7 +419,32 @@ export function Live({
           )}
         </section>
         <aside className="studio-sidebar">
-          {guided ? (
+          {guided && advancedFront ? (
+            <section className="panel scan-panel">
+              <span className="eyebrow">
+                VUES AUTOMATIQUES ACQUISES · {advancedFront.observationCount} OBSERVATIONS
+              </span>
+              <h2>Passez au profil latéral</h2>
+              <p>
+                La face et les vues automatiques choisies sont conservées. Tournez de côté puis
+                utilisez la capture latérale au-dessus, ou importez une photo. Le placement sera
+                assisté; aucune photo n’est enregistrée automatiquement.
+              </p>
+              <button
+                className="button secondary full"
+                onClick={() => {
+                  scanRef.current = restartScanStage(scanRef.current);
+                  setScan(scanRef.current);
+                  setAdvancedFront(null);
+                }}
+              >
+                Reprendre la dernière étape automatique
+              </button>
+              <button className="button secondary full" onClick={reset}>
+                Recommencer le scan
+              </button>
+            </section>
+          ) : guided ? (
             <section className="panel scan-panel">
               <div className="scan-mode-choice" role="group" aria-label="Protocole du scan">
                 <button
@@ -405,13 +529,23 @@ export function Live({
                 Le score est accessible sans attendre la fin du scan. Poursuivez la capture pour
                 améliorer sa stabilité.
               </p>
+              <button
+                className="button secondary full"
+                onClick={() => {
+                  scanRef.current = restartScanStage(scanRef.current);
+                  setScan(scanRef.current);
+                  setAdvancedFront(null);
+                }}
+              >
+                Recommencer cette étape
+              </button>
               <button className="button secondary full" onClick={reset}>
                 <RotateCcw size={16} />
                 Recommencer le scan
               </button>
               <p className="small muted">
-                Les profils à 90° ne sont pas validés par ce modèle. Les mesures correspondantes
-                resteront indisponibles.
+                Les profils à 90° passent par le placement assisté.{' '}
+                <Link to="/advanced">Ouvrir Advanced Scan</Link>
               </p>
             </section>
           ) : (

@@ -148,3 +148,18 @@ export function assessScanConsistency(observations: ScanObservation[]): ScanCons
   });
   return { status: issues.length ? 'inconsistent' : 'consistent', issues, checks };
 }
+
+/** Restart only the selected real acquisition stage, preserving completed earlier views. */
+export function restartScanStage(state: ScanState): ScanState {
+  const stages = getScanStages(state.mode);
+  const index = Math.min(state.stageIndex, stages.length - 1);
+  const retained = new Set(stages.slice(0, index).map((s) => s.id));
+  return {
+    ...state,
+    stageIndex: index,
+    accepted: 0,
+    complete: false,
+    lastTimestamp: -Infinity,
+    observations: state.observations.filter((o) => retained.has(o.stage)),
+  };
+}
