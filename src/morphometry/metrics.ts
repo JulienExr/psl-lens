@@ -183,7 +183,11 @@ export const definitions: Definition[] = [
   ),
 ];
 
-export function measure(result: FaceDetectionResult, quality: CaptureQuality): Measurement[] {
+export function measure(
+  result: FaceDetectionResult,
+  quality: CaptureQuality,
+  options: { allowApproximate?: boolean } = {},
+): Measurement[] {
   const raw = result.faces[0] ?? [];
   const complete =
     result.faces.length === 1 &&
@@ -205,22 +209,27 @@ export function measure(result: FaceDetectionResult, quality: CaptureQuality): M
     Math.abs(result.pose.yaw) <= 12 &&
     Math.abs(result.pose.pitch) <= 12 &&
     Math.abs(result.pose.roll) <= 20;
+  const verified = frontal && quality.valid && quality.frontal;
   return definitions.map(({ calculate, ...definition }) => {
     const value =
-      geometryValid && frontal && quality.valid && quality.frontal ? calculate(corrected) : null;
+      geometryValid && (verified || options.allowApproximate) ? calculate(corrected) : null;
     const usable = value !== null && Number.isFinite(value);
     return {
       ...definition,
       value: usable ? value : null,
-      confidence: usable ? 'moderate' : 'unavailable',
-      reason: usable
-        ? undefined
-        : !geometryValid
-          ? 'Repères absents, invalides ou plusieurs visages.'
-          : !quality.frontal || !frontal
-            ? 'Une vue frontale est nécessaire (rotation ≤ 12°).'
-            : quality.issues.join(' ') ||
-              'Construction géométrique dégénérée ou repères incohérents.',
+      confidence: usable ? (verified ? 'moderate' : 'low') : 'unavailable',
+      ...(usable && !verified ? { reliabilityReason: 'capture-quality' as const } : {}),
+      reason:
+        usable && !verified
+          ? 'Estimation indicative : la pose ou la qualité de capture peuvent déformer cette mesure.'
+          : usable
+            ? undefined
+            : !geometryValid
+              ? 'Repères absents, invalides ou plusieurs visages.'
+              : !quality.frontal || !frontal
+                ? 'Une vue frontale est nécessaire (rotation ≤ 12°).'
+                : quality.issues.join(' ') ||
+                  'Construction géométrique dégénérée ou repères incohérents.',
     };
   });
 }

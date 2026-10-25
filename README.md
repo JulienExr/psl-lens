@@ -34,13 +34,15 @@ Lucide et `@mediapipe/tasks-vision`. Les versions exactes sont verrouillées dan
 - **Live** : cliquer sur « Activer la caméra ». Autoriser la caméra, jamais le
   microphone. Choisir le périphérique, activer/désactiver le miroir, changer de
   couche et sélectionner une région. Pause suspend l’inférence; Arrêter coupe
-  la caméra. Cinq observations frontales valides permettent de créer le rapport.
+  la caméra. Une observation mesurable suffit au rapport; une série stabilisée affine la fiabilité.
 - **Quick Scan** (par défaut) : 16 observations frontales stabilisées.
   **Multi-Angle Scan**, facultatif : ajoute 8 observations par rotation légère
   pour contrôler pose, taille, cadrage et continuité d’une proportion verticale.
   Les vues tournées ne corrigent pas les ratios frontaux et ne reconstruisent
-  pas la 3D. Une capture incohérente refuse la note. Une capture invalide remet
+  pas la 3D. Une capture incohérente conserve une estimation avec avertissement. Une capture invalide remet
   à zéro la série en cours; la progression dépend des détections réelles.
+  Le bouton « Voir mon estimation maintenant » donne accès au score sans attendre
+  la fin du scan guidé.
 - **Rapport** : explorer les régions, ouvrir une mesure pour consulter sa
   formule, les indices, la construction géométrique, les effectifs, la rétention
   et la dispersion. Masquer la notation esthétique, exporter les mesures JSON
@@ -56,14 +58,14 @@ Les ratios et angles sont calculés à partir de coordonnées en pixels, après
 correction du roulis par la ligne des yeux. Ce sont des mesures **apparentes 2D**,
 sans dimensions physiques et sans reconstruction osseuse.
 
-Le nouveau **`psl-frontal-1.0.0`** produit une note frontale expérimentale sur 8
-si ses 7 mesures requises, la pose (±8°), l’expression et la qualité sont
-exploitables. Pondérations propres : proportions 30 %, yeux 25 %, symétrie
-apparente 20 %, contour inférieur/menton 25 %. Une photo unique peut produire
-une note de **fiabilité limitée**; une série exige au moins 5 valeurs retenues,
-75 % de rétention et une faible dispersion pour chaque entrée obligatoire.
-Les seuils et les cibles sont des hypothèses subjectives, sans validation
-scientifique d’attractivité ni percentile. Voir [le protocole](docs/scoring.md).
+Le **`psl-frontal-1.1.0`** conserve une note expérimentale sur 8 dès que le
+visage est mesurable. Une qualité insuffisante, une pose imparfaite ou une série
+courte déclenchent des avertissements et une fiabilité limitée. Les poids
+nominaux restent 30/25/20/25 %. Si des mesures manquent, la note est normalisée
+sur les seules entrées utilisables et la couverture est affichée explicitement.
+Aucune valeur manquante n’est inventée. Une photo unique reste limitée;
+les séries stabilisées peuvent atteindre une fiabilité modérée.
+Voir [le protocole et les formules](docs/scoring.md).
 
 Le protocole historique `psl-heuristic-1.0.0` reste séparé. **PSL complet :
 indisponible**, car la projection du profil n’est pas validée. Aucun poids

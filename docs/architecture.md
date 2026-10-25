@@ -10,7 +10,8 @@ un callback `onReport`; les moteurs ne dépendent pas de React.
 et la boucle adaptative. Un AbortController appartient à chaque session. Les tokens de génération invalident les continuations
 après arrêt/démontage. Chaque stream obtenu après annulation est immédiatement
 arrêté. `pagehide` et passage en arrière-plan coupent les tracks. Les mesures
-Live ne sont affichées que sur une observation frontale exploitable.
+Live sont disponibles dès une observation mesurable, avec fiabilité limitée
+si la capture ne satisfait pas les recommandations.
 
 `VisionClient` initialise une seule session de vision, interdit les inférences
 concurrentes et choisit le worker classique (`/vision/<empreinte>/vision-worker.js`). Un bitmap
@@ -57,10 +58,14 @@ Les matrices MediaPipe `MatrixData` sont aplaties par colonnes. Après retrait
 du facteur d’échelle des axes, les angles XYZ sont extraits par atan2/asin.
 Ce sont des angles approximatifs, sans calibration individuelle. La ligne des
 yeux corrige séparément le roulis des mesures 2D. Les rotations hors du plan
-supérieures à 12° sont exclues des mesures frontales.
+supérieures à 12° sont exclues en mode strict. Le mode approximatif explicite
+les conserve comme projections apparentes limitées, sans correction 3D.
 
-Le scoring frontal impose une limite plus stricte de ±8° yaw/pitch. Une mesure
-descriptive peut donc être disponible alors que la note est refusée.
+Le scoring frontal 1.1 recommande ±8° yaw/pitch. Le dépassement ajoute un
+avertissement et limite la fiabilité, sans masquer la note. Photo/Live utilisent
+explicitement `measure(..., {allowApproximate:true})` pour les captures mesurables;
+le mode par défaut reste strict pour le scan stabilisé. Les repères invalides,
+les baselines effondrées et les scènes sans visage unique restent exclus.
 `measurement-geometry.ts` construit les segments, références, arcs et projections
 des 15 formules dans le repère corrigé, puis les remappe vers l’image.
 Le Live dessine le maillage dans un Canvas impératif; Photo/Rapport gardent SVG.
@@ -72,7 +77,7 @@ Le benchmark reproductible est `npm run test:performance`.
 Le Quick Scan recueille 16 observations frontales consécutives. Le mode
 multi-angle ajoute deux séries de 8 vues à ±22° : elles servent uniquement aux
 contrôles empiriques de continuité de taille, de centre, de pose et de proportion
-verticale. Une incohérence refuse la note, sans inventer de correction 3D.
+verticale. Une incohérence conserve la note avec avertissement, sans inventer de correction 3D.
 
 Chaque mesure est agrégée par médiane/MAD. Effectifs, dispersion brute et après
 rejet, fraction retenue et motif de fiabilité limitée restent inspectables.

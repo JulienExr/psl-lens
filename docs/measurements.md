@@ -1,11 +1,14 @@
 # Mesures apparentes
 
-Toutes les mesures exigent : un seul visage, 478 points finis, capture de
-qualité suffisante et pose frontale (|yaw|, |pitch| ≤ 12°, |roll| ≤ 20°). Les points sont
+Toutes les mesures exigent un seul visage, 478 points finis et une géométrie
+non dégénérée. Le mode strict demande aussi une capture de qualité suffisante
+et une pose frontale (|yaw|, |pitch| ≤12°, |roll| ≤20°). Photo et Live utilisent
+un mode approximatif explicite qui conserve les valeurs calculables malgré la
+pose ou la qualité, en les marquant limitées. Les points sont
 convertis en pixels et dérotés par l’angle 33→263. `d(a,b)` est la distance
 euclidienne 2D, `W=d(234,454)`, `H=d(10,152)`. Un dénominateur nul rend la
-mesure indisponible. Les dimensions, coordonnées x/y/z, horodatage et angles doivent
-être finis. Largeur/hauteur faciale et lignes des yeux non dégénérées sont requises;
+mesure indisponible. Les dimensions, coordonnées x/y/z et horodatage doivent
+être finis. En mode strict, les angles de pose doivent aussi être vérifiés. Largeur/hauteur faciale et lignes des yeux non dégénérées sont requises;
 les canthi internes restent ordonnés entre les externes dans le repère des yeux.
 Aucun ratio n’est une dimension physique.
 
@@ -64,7 +67,10 @@ Le yaw/pitch n’est pas corrigé. Sur une projection orthographique synthétiqu
 modèle canonique, yaw=10° produit un écart de symétrie de 0,0397 au lieu de zéro;
 pitch=10° fait passer l’inclinaison canthale de 1,74° à 3,96°. Ce test expose une
 sensibilité à la pose, sans valider une précision sur des personnes. Le score
-frontal exige une pose plus stricte (±8°); ce seuil reste empirique.
+frontal recommande une pose plus stricte (±8°), désormais signalée par un avertissement
+si elle est dépassée. Ce seuil reste empirique. Photo/Live peuvent demander des
+mesures approximatives sans ce filtre, toujours de fiabilité limitée. Les
+conditions de géométrie finie et non dégénérée restent obligatoires.
 
 ## Qualité calculée par l’application
 

@@ -53,7 +53,8 @@ export interface Measurement {
   samples?: number;
   retention?: number;
   rawSpread?: number;
-  reliabilityReason?: 'single-photo' | 'insufficient-samples' | 'dispersion' | 'outliers';
+  reliabilityReason?:
+    'single-photo' | 'insufficient-samples' | 'dispersion' | 'outliers' | 'capture-quality';
 }
 export interface ScanObservation {
   detection: FaceDetectionResult;
@@ -67,6 +68,7 @@ export interface ScoreCategory {
   weight: number;
   score: number | null;
   contribution: number | null;
+  coverage?: number;
   reason?: string;
   inputs: { id: string; value: number; target: number; tolerance: number; score: number }[];
 }
@@ -78,6 +80,7 @@ export interface PSLResult {
   disclaimer: string;
 }
 export interface FrontalPSLResult extends PSLResult {
+  coverage: number;
   reliability: 'limited' | 'moderate' | 'unavailable';
   reasons: string[];
 }

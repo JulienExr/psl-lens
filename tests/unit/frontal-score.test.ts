@@ -34,11 +34,11 @@ it('exports an explicitly separate frontal scoring protocol', () => {
   expect(scoring).toHaveProperty('scoreFrontal');
 });
 
-describe('psl-frontal-1.0.0', () => {
+describe('psl-frontal-1.1.0', () => {
   it('scores a valid single photo with explicitly limited reliability', () => {
     const result = run(inputs(), photo);
     expect(result).toMatchObject({
-      version: 'psl-frontal-1.0.0',
+      version: 'psl-frontal-1.1.0',
       score: 8,
       reliability: 'limited',
     });
@@ -56,10 +56,12 @@ describe('psl-frontal-1.0.0', () => {
     );
     expect(run(metrics, series).score).not.toBeNull();
   });
-  it('requires every category and never redistributes missing weights', () => {
+  it('exposes partial coverage and normalizes only the measured weights', () => {
     const missing = inputs().filter((m) => m.id !== 'symmetry');
     const result = run(missing, photo);
-    expect(result.score).toBeNull();
+    expect(result.score).toBe(8);
+    expect(result.coverage).toBeCloseTo(0.8);
+    expect(result.reliability).toBe('limited');
     expect(result.categories.find((c) => c.id === 'symmetry')?.weight).toBe(0.2);
     expect(result.categories.find((c) => c.id === 'symmetry')?.score).toBeNull();
     expect(result.categories.find((c) => c.id === 'eyes')?.score).toBe(8);
@@ -72,44 +74,47 @@ describe('psl-frontal-1.0.0', () => {
       ).score,
     ).toBe(8);
   });
-  it.each([null, NaN, Infinity, 0, -1])('refuses invalid mandatory ratios (%s)', (value) => {
-    expect(
-      run(
-        inputs().map((m) => (m.id === 'face-ratio' ? { ...m, value } : m)),
-        photo,
-      ).score,
-    ).toBeNull();
+  it.each([null, NaN, Infinity, 0, -1])(
+    'excludes invalid ratios and retains a partial estimate (%s)',
+    (value) => {
+      expect(
+        run(
+          inputs().map((m) => (m.id === 'face-ratio' ? { ...m, value } : m)),
+          photo,
+        ).score,
+      ).not.toBeNull();
+    },
+  );
+  it('excludes ambiguous duplicate inputs while retaining a partial estimate', () => {
+    expect(run([...inputs(), inputs()[0]], photo).score).not.toBeNull();
   });
-  it('refuses duplicate mandatory metric IDs', () => {
-    expect(run([...inputs(), inputs()[0]], photo).score).toBeNull();
-  });
-  it('does not infer a reliability reason or sample count', () => {
+  it('warns when reliability evidence or sample count is missing', () => {
     expect(
       run(
         inputs().map((m) => ({ ...m, reliabilityReason: undefined })),
         photo,
       ).score,
-    ).toBeNull();
+    ).not.toBeNull();
     expect(
       run(
         inputs().map((m) => ({ ...m, samples: undefined })),
         photo,
       ).score,
-    ).toBeNull();
+    ).not.toBeNull();
   });
-  it('refuses invalid or contradictory dispersion supplied with a single photo', () => {
+  it('warns about invalid or contradictory photo dispersion', () => {
     expect(
       run(
         inputs().map((m) => (m.id === 'face-ratio' ? { ...m, spread: NaN } : m)),
         photo,
       ).score,
-    ).toBeNull();
+    ).not.toBeNull();
     expect(
       run(
         inputs().map((m) => (m.id === 'face-ratio' ? { ...m, rawSpread: 1 } : m)),
         photo,
       ).score,
-    ).toBeNull();
+    ).not.toBeNull();
   });
   it.each([
     { samples: 4 },
@@ -121,13 +126,13 @@ describe('psl-frontal-1.0.0', () => {
     { rawSpread: undefined },
     { reliabilityReason: 'outliers' as const },
     { reliabilityReason: 'dispersion' as const },
-  ])('refuses insufficient or unstable series (%j)', (change) => {
+  ])('retains an indicative score for insufficient or unstable series (%j)', (change) => {
     expect(
       run(
         inputs('live').map((m) => (m.id === 'face-ratio' ? { ...m, ...change } : m)),
         series,
       ).score,
-    ).toBeNull();
+    ).not.toBeNull();
   });
   it.each([
     { valid: false },
@@ -138,13 +143,15 @@ describe('psl-frontal-1.0.0', () => {
     { stability: 1.1 },
     { faceSize: NaN },
     { label: 'adjust' as const },
-  ])('refuses unverified capture evidence (%j)', (change) => {
-    expect(run(inputs(), { ...photo, quality: { ...readyQuality, ...change } }).score).toBeNull();
+  ])('warns about unverified capture evidence (%j)', (change) => {
+    expect(
+      run(inputs(), { ...photo, quality: { ...readyQuality, ...change } }).score,
+    ).not.toBeNull();
   });
   it.each([{ yaw: 8.01 }, { pitch: -8.01 }, { roll: NaN }, { source: 'unavailable' as const }])(
-    'requires a finite strict frontal scoring pose (%j)',
+    'warns about an oblique or unknown scoring pose (%j)',
     (change) => {
-      expect(run(inputs(), { ...photo, pose: { ...photo.pose, ...change } }).score).toBeNull();
+      expect(run(inputs(), { ...photo, pose: { ...photo.pose, ...change } }).score).not.toBeNull();
     },
   );
   it('returns zero at each tolerance boundary and stays deterministic', () => {

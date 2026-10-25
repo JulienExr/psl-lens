@@ -37,16 +37,31 @@ export function FrontalScorePanel({
             </div>
             <p className="score-reliability">
               {result.reliability === 'limited'
-                ? 'Fiabilité limitée · photo unique'
+                ? analysis.source === 'photo'
+                  ? 'Fiabilité limitée · photo unique'
+                  : 'Fiabilité limitée · estimation indicative'
                 : result.reliability === 'moderate'
                   ? 'Fiabilité descriptive modérée · série stabilisée'
-                  : 'Note refusée · données insuffisantes ou instables'}
+                  : 'Aucun visage mesurable · reprenez une capture'}
             </p>
+            {result.reliability === 'limited' && (
+              <p className="capture-warning">
+                Estimation indicative : la qualité, la pose ou le nombre d’observations peuvent
+                modifier le score. Améliorez la capture pour l’affiner.
+              </p>
+            )}
             <ul className="score-reasons">
               {result.reasons.map((reason) => (
                 <li key={reason}>{reason}</li>
               ))}
             </ul>
+            <p className="small muted">
+              Couverture des mesures : {Math.round(result.coverage * 100)} %
+              {result.coverage > 0 && result.coverage < 1
+                ? ' · score normalisé sur les seules mesures disponibles'
+                : ''}
+              .
+            </p>
           </div>
           <div className="score-categories">
             {result.categories.map((category) => (
@@ -55,6 +70,16 @@ export function FrontalScorePanel({
                   <span>
                     {category.name}
                     <small>Poids frontal : {Math.round(category.weight * 100)} %</small>
+                    {result.coverage > 0 && result.coverage < 1 && (
+                      <small>
+                        Poids utilisé :{' '}
+                        {Math.round(
+                          ((category.weight * (category.coverage ?? 0)) / result.coverage) * 100,
+                        )}{' '}
+                        % · couverture de la catégorie :{' '}
+                        {Math.round((category.coverage ?? 0) * 100)} %
+                      </small>
+                    )}
                   </span>
                   <strong className="mono">
                     {category.score === null ? 'N/D' : `${category.score.toFixed(2)} / 8`}

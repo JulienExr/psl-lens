@@ -62,6 +62,16 @@ export function Live({
         lastStats.current = performance.now();
       }
       observation.quality.issues.forEach((issue) => captureIssues.current.add(issue));
+      const estimated = measure(observation.detection, observation.quality, {
+        allowApproximate: true,
+      });
+      if (estimated.some((m) => m.value !== null)) {
+        observations.current = [
+          ...observations.current.slice(-59),
+          { ...observation, measurements: estimated },
+        ];
+        setCount(observations.current.length);
+      }
       if (guided) {
         const next = advanceScan(scanRef.current, observation);
         scanRef.current = next;
@@ -73,9 +83,6 @@ export function Live({
               captureIssues: [...captureIssues.current],
             }),
           );
-      } else if (observation.quality.valid && observation.quality.frontal) {
-        observations.current = [...observations.current.slice(-59), observation];
-        setCount(observations.current.length);
       }
     },
     [guided, onReport],
@@ -107,7 +114,9 @@ export function Live({
   const active = camera.status === 'active';
   const busy = camera.status === 'starting' || camera.status === 'loading';
   const metrics =
-    camera.detection && camera.quality ? measure(camera.detection, camera.quality) : [];
+    camera.detection && camera.quality
+      ? measure(camera.detection, camera.quality, { allowApproximate: !guided })
+      : [];
   const progress = guided
     ? Math.round((scan.observations.length / stages.reduce((sum, s) => sum + s.required, 0)) * 100)
     : 0;
@@ -289,8 +298,8 @@ export function Live({
                 </select>
               </label>
               <p className="small muted">
-                {selectedMeasurement?.formula}. La mesure reste descriptive; une vue frontale valide
-                est requise.
+                {selectedMeasurement?.formula}. Estimation descriptive; une vue de face améliore la
+                fiabilité.
               </p>
             </div>
           )}
@@ -376,6 +385,26 @@ export function Live({
                   </li>
                 ))}
               </ol>
+              <button
+                className="button primary full"
+                disabled={count < 1}
+                onClick={() =>
+                  onReport(
+                    aggregate(observations.current, 'live', 0, {
+                      captureIssues: [
+                        ...captureIssues.current,
+                        'Estimation demandée avant la fin du scan guidé.',
+                      ],
+                    }),
+                  )
+                }
+              >
+                Voir mon estimation maintenant <ArrowRight size={17} />
+              </button>
+              <p className="small muted">
+                Le score est accessible sans attendre la fin du scan. Poursuivez la capture pour
+                améliorer sa stabilité.
+              </p>
               <button className="button secondary full" onClick={reset}>
                 <RotateCcw size={16} />
                 Recommencer le scan
@@ -396,8 +425,7 @@ export function Live({
               <div className="live-metrics">
                 {['face-ratio', 'eye-spacing', 'nose-width', 'jaw-ratio'].map((id) => {
                   const m = metrics.find((v) => v.id === id);
-                  const validNow =
-                    camera.quality?.valid && camera.quality.frontal && !camera.paused;
+                  const validNow = !camera.paused;
                   return (
                     <div key={id}>
                       <span>
@@ -420,11 +448,11 @@ export function Live({
               </div>
               <div className="observation-count">
                 <span className="status-dot" />
-                {count} observations frontales retenues
+                {count} observations mesurables retenues
               </div>
               <button
                 className="button primary full"
-                disabled={count < 5}
+                disabled={count < 1}
                 onClick={() =>
                   onReport(
                     aggregate(observations.current, 'live', 0, {
@@ -437,8 +465,8 @@ export function Live({
                 <ArrowRight size={17} />
               </button>
               <p className="small muted">
-                Au moins 5 observations exploitables. Conservez la tête droite et une expression
-                neutre.
+                Une observation suffit pour une estimation indicative. Pour affiner le score, gardez
+                la tête droite et laissez la capture se stabiliser.
               </p>
             </section>
           )}
@@ -446,7 +474,11 @@ export function Live({
             <div className="eyebrow">QUALITÉ DE CAPTURE</div>
             <div className={`quality-status ${camera.quality?.valid ? 'good' : ''}`}>
               <span className={`status-dot ${camera.quality?.valid ? '' : 'off'}`} />
-              {camera.quality?.valid ? 'Capture exploitable' : 'En attente d’une capture valide'}
+              {camera.quality?.valid
+                ? 'Capture exploitable'
+                : camera.detection?.faces.length === 1
+                  ? 'Estimation indicative · capture à améliorer'
+                  : 'En attente d’un visage'}
             </div>
             {camera.quality && (
               <>
@@ -467,7 +499,7 @@ export function Live({
                     <li key={issue}>{issue}</li>
                   ))}
                   {camera.quality.valid && !camera.quality.frontal && !guided && (
-                    <li>Revenez de face pour calculer les mesures.</li>
+                    <li>Le score reste accessible. Revenez de face pour affiner les mesures.</li>
                   )}
                 </ul>
               </>

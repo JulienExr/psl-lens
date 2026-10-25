@@ -48,7 +48,10 @@ function captureReasons({ quality: q, pose }: FrontalScoreContext): string[] {
     q.issues.length ||
     q.neutralExpression !== true
   )
-    reasons.push('Capture frontale neutre et valide requise.');
+    reasons.push(
+      'Qualité de capture à améliorer : cette estimation est à interpréter avec prudence.',
+    );
+  reasons.push(...q.issues);
   if (
     q.brightness === null ||
     !Number.isFinite(q.brightness) ||
@@ -69,7 +72,9 @@ function captureReasons({ quality: q, pose }: FrontalScoreContext): string[] {
     Math.abs(pose.pitch) > 8 ||
     Math.abs(pose.roll) > 20
   )
-    reasons.push('Pose trop oblique ou inconnue : score frontal limité à ±8° de yaw/pitch.');
+    reasons.push(
+      'Pose oblique ou inconnue : les proportions apparentes peuvent être déformées. Reprenez de face pour affiner le score.',
+    );
   return reasons;
 }
 
@@ -78,13 +83,13 @@ function measurementReason(
   source: FrontalScoreContext['source'],
 ): string | null {
   if (!m || m.value === null || !Number.isFinite(m.value) || m.confidence === 'unavailable')
-    return 'Mesure obligatoire indisponible.';
+    return 'Une mesure est indisponible et exclue de l’estimation.';
   if (
     (m.id === 'symmetry' && m.value < 0) ||
     (m.id === 'canthal-tilt' && Math.abs(m.value) >= 90) ||
     (m.id !== 'symmetry' && m.id !== 'canthal-tilt' && m.value <= 0)
   )
-    return 'Mesure obligatoire géométriquement invalide.';
+    return 'Une construction géométrique est invalide et exclue de l’estimation.';
   if (source === 'photo') {
     if (
       (m.spread !== undefined && (!Number.isFinite(m.spread) || m.spread !== 0)) ||
@@ -94,7 +99,7 @@ function measurementReason(
       return 'Dispersion incompatible avec une observation unique.';
     return m.samples === 1 && m.confidence === 'low' && m.reliabilityReason === 'single-photo'
       ? null
-      : 'Une photo doit porter une fiabilité limitée et une observation unique.';
+      : 'Fiabilité limitée : la répétabilité de cette photo n’est pas vérifiée.';
   }
   const threshold = Math.max(Math.abs(m.value) * 0.1, m.unit === '°' ? 0.75 : 0.01);
   if (
@@ -115,7 +120,7 @@ function measurementReason(
     m.retention < 0.75 ||
     m.retention > 1
   )
-    return 'Série insuffisante ou instable : au moins 5 observations conservées et 75 % de rétention requis.';
+    return 'Série courte, dispersée ou peu retenue : prolongez une capture stable pour affiner le score.';
   return null;
 }
 
@@ -124,7 +129,6 @@ export function scoreFrontal(
   context: FrontalScoreContext,
 ): FrontalPSLResult {
   const reasons = captureReasons(context);
-  const captureValid = reasons.length === 0;
   const output = categories.map((category) => {
     const problems: string[] = [];
     const inputs = category.rules.flatMap(([id, target, tolerance]) => {
@@ -135,8 +139,22 @@ export function scoreFrontal(
           : measurementReason(matches[0], context.source);
       if (reason) {
         problems.push(`${id} : ${reason}`);
-        return [];
+        reasons.push(reason);
       }
+      const m = matches[0];
+      if (
+        matches.length !== 1 ||
+        !m ||
+        m.value === null ||
+        !Number.isFinite(m.value) ||
+        m.confidence === 'unavailable' ||
+        (id === 'symmetry'
+          ? m.value < 0
+          : id === 'canthal-tilt'
+            ? Math.abs(m.value) >= 90
+            : m.value <= 0)
+      )
+        return [];
       const value = matches[0].value!;
       return [
         {
@@ -148,9 +166,8 @@ export function scoreFrontal(
         },
       ];
     });
-    reasons.push(...problems);
-    const available = captureValid && problems.length === 0;
-    const value = available
+    const coverage = inputs.length / category.rules.length;
+    const value = inputs.length
       ? inputs.reduce((sum, input) => sum + input.score, 0) / inputs.length
       : null;
     return {
@@ -158,25 +175,36 @@ export function scoreFrontal(
       name: category.name,
       weight: category.weight,
       score: value,
-      contribution: value === null ? null : value * category.weight,
+      contribution: value === null ? null : value * category.weight * coverage,
+      coverage,
       inputs,
-      reason: available
-        ? undefined
-        : !captureValid
-          ? 'Conditions de capture du protocole frontal non satisfaites.'
-          : problems.join(' '),
+      reason: problems.length ? problems.join(' ') : undefined,
     };
   });
-  const complete = output.every((c) => c.score !== null);
-  if (complete && context.source === 'photo')
+  const coverage = output.reduce((sum, c) => sum + c.weight * c.coverage, 0);
+  if (coverage > 0 && coverage < 1)
+    reasons.push(
+      'Couverture partielle : le score est normalisé sur les seules mesures disponibles. Les mesures absentes ne sont pas estimées.',
+    );
+  if (coverage > 0 && context.source === 'photo')
     reasons.push('Fiabilité limitée : photo unique, dispersion temporelle inconnue.');
   return {
-    version: 'psl-frontal-1.0.0',
-    score: complete ? output.reduce((sum, c) => sum + c.contribution!, 0) : null,
-    categories: output,
-    missing: output.filter((c) => c.score === null).map((c) => c.name),
+    version: 'psl-frontal-1.1.0',
+    score:
+      coverage > 0
+        ? Math.max(
+            0,
+            Math.min(8, output.reduce((sum, c) => sum + (c.contribution ?? 0), 0) / coverage),
+          )
+        : null,
+    coverage,
+    categories: output.map((c) => ({
+      ...c,
+      contribution: c.contribution === null ? null : c.contribution / coverage,
+    })),
+    missing: output.filter((c) => c.coverage < 1).map((c) => c.name),
     disclaimer: DISCLAIMER,
-    reliability: complete ? (context.source === 'photo' ? 'limited' : 'moderate') : 'unavailable',
-    reasons,
+    reliability: coverage > 0 ? (reasons.length ? 'limited' : 'moderate') : 'unavailable',
+    reasons: [...new Set(reasons)],
   };
 }

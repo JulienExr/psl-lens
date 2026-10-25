@@ -16,8 +16,8 @@ export function About() {
         <p>
           MediaPipe Face Landmarker prédit jusqu’à 478 repères. PSL Lens les convertit en
           coordonnées de l’image, corrige l’inclinaison dans le plan et calcule 15 ratios et angles.
-          La rotation hors du plan n’est pas corrigée en 3D : seules les vues suffisamment frontales
-          alimentent les mesures.
+          La rotation hors du plan n’est pas corrigée en 3D. Les vues de face sont recommandées; les
+          autres captures restent des estimations indicatives avec avertissement.
         </p>
         <p>
           Les indicateurs de qualité vérifient le cadrage, la taille du visage, la pose, le
@@ -28,8 +28,8 @@ export function About() {
           Le Quick Scan collecte 16 observations frontales. Le Multi-Angle Scan facultatif ajoute 8
           observations pour chaque rotation légère. Une pose incorrecte interrompt la série en
           cours. L’agrégation utilise une médiane et rejette les valeurs aberrantes avec un seuil
-          fondé sur la MAD. Les rotations servent au contrôle de de taille, de cadrage et de
-          continuité géométrique, sans reconstruction 3D ni vérification d’identité.
+          fondé sur la MAD. Les rotations servent au contrôle de taille, de cadrage et de continuité
+          géométrique, sans reconstruction 3D ni vérification d’identité.
         </p>
       </section>
       <section>
@@ -42,11 +42,12 @@ export function About() {
           population n’est produit.
         </p>
         <p>
-          Le protocole frontal expérimental utilise ses propres poids 30/25/20/25 % et refuse la
-          note si la qualité ou ses mesures obligatoires sont insuffisantes. Une photo unique garde
-          une fiabilité limitée. Le PSL complet historique reste indisponible : la projection du
-          profil n’est pas validée. La notation et ses contributions sont inspectables et
-          masquables.
+          Le protocole frontal expérimental utilise ses propres poids 30/25/20/25 %. Une capture
+          mesurable garde sa note; une qualité insuffisante déclenche un avertissement. Si des
+          mesures manquent, le calcul utilise les seules entrées disponibles et affiche sa
+          couverture. Une photo unique garde une fiabilité limitée. Le PSL complet historique reste
+          indisponible : la projection du profil n’est pas validée. La notation et ses contributions
+          sont inspectables et masquables.
         </p>
         <p className="score-disclaimer">{DISCLAIMER}</p>
       </section>

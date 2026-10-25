@@ -210,8 +210,8 @@ export function Landing() {
             <summary>Le score PSL est-il scientifique ?</summary>
             <p>
               Non. Le PSL frontal expérimental repose sur des cibles subjectives et peut être
-              masqué. Sa note exige des captures exploitables. Le PSL complet reste indisponible
-              tant que le profil n’est pas validé.
+              masqué. Sa note reste indicative; les problèmes de capture sont signalés. Le PSL
+              complet reste indisponible tant que le profil n’est pas validé.
             </p>
           </details>
           <details>

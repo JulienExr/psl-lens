@@ -2971,3 +2971,16 @@ progress::-moz-progress-bar {
     display: none;
   }
 }
+
+.capture-warning {
+  padding: 14px 16px;
+  color: #e3c391;
+  border: 1px solid #e3b97f40;
+  border-radius: 6px;
+  background: #e3b97f08;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.capture-warning p {
+  margin: 5px 0 0;
+}
