@@ -22,8 +22,7 @@ anatomique scientifiquement validée.
 
 Le score global serait la somme des sous-scores pondérés si toutes les
 catégories étaient disponibles. **Il reste null**, puisque le profil ne
-peut pas être calculé de manière techniquement justifiée. Importer une photo
-de profil ne change pas cela. Aucun remplacement par zéro ou redistribution
+peut pas être calculé de manière techniquement justifiée. Ce protocole historique ne reçoit pas les nouvelles mesures latérales; la V2 les utilise uniquement dans un protocole distinct. Aucun remplacement par zéro ou redistribution
 des poids n’a lieu. Les contributions pondérées sont inspectables, sans total.
 
 La configuration accepte une version et cinq poids strictement positifs
@@ -119,3 +118,7 @@ reprendre la capture. Aucune note fictive n’est fournie pour ce cas.
 
 Le masquage volontaire de la notation s’applique aussi au JSON. Pas de
 percentile, diagnostic ou prédiction scientifique de l’attractivité.
+
+## Multi-vues V2
+
+`psl-multiview-2.0.0` conserve le protocole frontal et utilise un profil assisté séparé. Pondérations, cibles, sélection de source, couverture et exclusions sont détaillées dans [multiview.md](multiview.md). Cette nouvelle heuristique ne valide pas le PSL historique ni l’attractivité.

@@ -17,25 +17,70 @@ async function files(directory) {
 }
 const paths = await files('dist');
 const hash = createHash('sha256').update(await readFile(new URL(import.meta.url)));
-let shellBytes = 0;
-let runtimeBytes = 0;
+const sizes = new Map();
 for (const path of paths) {
   const bytes = await readFile(path);
   hash.update(path).update(bytes);
-  if (path.startsWith('dist/vision/')) runtimeBytes += bytes.length;
-  else shellBytes += bytes.length;
+  sizes.set(path.slice(4), bytes.length);
 }
 const version = hash.digest('hex').slice(0, 16);
 const urls = paths.map((path) => path.slice(4));
-const shell = urls.filter((url) => !url.startsWith('/vision/'));
 const runtime = urls.filter((url) => url.startsWith('/vision/'));
+let manifest;
+try {
+  manifest = JSON.parse(await readFile('dist/.vite/manifest.json', 'utf8'));
+} catch (error) {
+  // Synthetic fixtures and legacy distributions have no Vite manifest.
+  if (error.code !== 'ENOENT') throw error;
+}
+let shell;
+let progressive = [];
+if (manifest) {
+  const required = new Set();
+  const visited = new Set();
+  function include(key) {
+    if (visited.has(key)) return;
+    const chunk = manifest[key];
+    if (!chunk) throw new Error(`Missing static Vite dependency: ${key}`);
+    visited.add(key);
+    for (const file of [chunk.file, ...(chunk.css ?? []), ...(chunk.assets ?? [])]) {
+      const url = '/' + file;
+      if (!sizes.has(url)) throw new Error(`Missing built shell asset: ${file}`);
+      required.add(url);
+    }
+    for (const dependency of chunk.imports ?? []) include(dependency);
+    // dynamicImports deliberately remain progressive, except the frontal fallback below.
+  }
+  for (const [key, chunk] of Object.entries(manifest)) {
+    if (chunk.isEntry || key === 'src/vision/engine.ts' || chunk.src === 'src/vision/engine.ts')
+      include(key);
+  }
+  if (!Object.values(manifest).some((chunk) => chunk.isEntry))
+    throw new Error('The Vite manifest has no application entry.');
+  // Preserve shipped shell documents/icons. Build metadata is never a runtime dependency.
+  shell = urls.filter(
+    (url) =>
+      !url.startsWith('/vision/') &&
+      !url.startsWith('/.vite/') &&
+      (required.has(url) || (!url.startsWith('/assets/') && !/\.(js|css)$/.test(url))),
+  );
+  const installed = new Set(shell);
+  // Exact build-time allowlist: never cache arbitrary URLs based on an extension alone.
+  progressive = urls.filter(
+    (url) => /^\/assets\/.+-[\w-]{8,}\.(js|css)$/.test(url) && !installed.has(url),
+  );
+} else {
+  shell = urls.filter((url) => !url.startsWith('/vision/'));
+}
+const bytesFor = (items) => items.reduce((sum, url) => sum + sizes.get(url), 0);
 const revisions = [...new Set(runtime.map((url) => url.split('/')[2]))];
 const source = `/* Generated static-only caches. No photos, videos, landmarks or arbitrary requests. */
 const SHELL = 'psl-lens-shell-${version}';
 const SHELL_URLS = ${JSON.stringify(shell)};
+const PROGRESSIVE_URLS = ${JSON.stringify(progressive)};
 const RUNTIME_URLS = ${JSON.stringify(runtime)};
 const REVISIONS = ${JSON.stringify(revisions)};
-const ALLOWED = new Set([...SHELL_URLS, ...RUNTIME_URLS]);
+const ALLOWED = new Set([...SHELL_URLS, ...PROGRESSIVE_URLS, ...RUNTIME_URLS]);
 const pending = new Map();
 function cacheName(pathname) {
   return pathname.startsWith('/vision/') ? 'psl-lens-vision-' + pathname.split('/')[2] : SHELL;
@@ -105,5 +150,5 @@ self.addEventListener('message', event => {
 `;
 await writeFile('dist/sw.js', source);
 console.log(
-  `PWA: ${shell.length} shell files (${shellBytes} bytes), ${runtime.length} progressive vision files (${runtimeBytes} bytes), version ${version}. Updates wait for old tabs to close or an explicit reload action.`,
+  `PWA: ${shell.length} shell files (${bytesFor(shell)} bytes), ${progressive.length} progressive module files (${bytesFor(progressive)} bytes), ${runtime.length} progressive vision files (${bytesFor(runtime)} bytes), version ${version}. Updates wait for old tabs to close or an explicit reload action.`,
 );

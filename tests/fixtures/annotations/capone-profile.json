@@ -1,0 +1,25 @@
+{
+  "schema": "psl-profile-reference-1.0.0",
+  "image": "capone-profile.jpg",
+  "width": 627,
+  "height": 1050,
+  "source": "https://commons.wikimedia.org/wiki/File:Al-Capone-Alcatraz-mug-shot-side.jpg",
+  "license": "Public domain US federal government, Federal Bureau of Prisons (1934)",
+  "referenceType": "single-operator-manual-example-not-expert-ground-truth",
+  "orientation": "lateral historical photograph, exact yaw unknown; not a validated strict 90 degree capture",
+  "side": "unknown",
+  "notes": [
+    "Nasion and lip boundaries are approximate on a historic photograph.",
+    "Neck transition omitted because clothing occludes the contour.",
+    "Annotations exercise workflow and sensitivity, not anatomical accuracy."
+  ],
+  "points": {
+    "nasion": { "x": 0.88836, "y": 0.33333, "source": "manual", "confirmed": true },
+    "pronasale": { "x": 0.98884, "y": 0.42476, "source": "manual", "confirmed": true },
+    "subnasale": { "x": 0.93461, "y": 0.45524, "source": "manual", "confirmed": true },
+    "upperLip": { "x": 0.95056, "y": 0.49619, "source": "manual", "confirmed": true },
+    "lowerLip": { "x": 0.95853, "y": 0.52762, "source": "manual", "confirmed": true },
+    "pogonion": { "x": 0.93301, "y": 0.5781, "source": "manual", "confirmed": true },
+    "menton": { "x": 0.84848, "y": 0.63333, "source": "manual", "confirmed": true }
+  }
+}

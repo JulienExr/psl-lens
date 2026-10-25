@@ -19,7 +19,7 @@ export function Landing() {
         <div className="hero-copy">
           <div className="eyebrow">
             <span className="status-dot" />
-            LIVE FACIAL ANALYSIS <span className="version">V1.1 · EXPERIMENTAL</span>
+            LIVE FACIAL ANALYSIS <span className="version">V2 · EXPERIMENTAL</span>
           </div>
           <h1>
             Votre visage.
@@ -41,6 +41,17 @@ export function Landing() {
             <Link className="button secondary" to="/photo">
               <ImagePlus size={18} />
               Analyze a Photo
+            </Link>
+          </div>
+          <div className="profile-tools">
+            <Link className="text-link" to="/scan">
+              Quick Scan
+            </Link>
+            <Link className="text-link" to="/advanced">
+              Advanced Scan
+            </Link>
+            <Link className="text-link" to="/profile">
+              Analyser un profil
             </Link>
           </div>
           <div className="hero-privacy">

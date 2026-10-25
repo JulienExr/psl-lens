@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -12,16 +12,222 @@ import type { AggregatedAnalysis, Measurement, Region } from '../types';
 import { Mesh } from '../components/Mesh';
 import { LocalNotice } from '../components/Controls';
 import { regions } from '../components/regions';
-import { DISCLAIMER } from '../scoring';
 import { FrontalScorePanel } from '../components/FrontalScorePanel';
 import { captureRecommendations } from '../recommendations';
 import { buildMeasurementGeometry } from '../vision/measurement-geometry';
 
-export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
+import type { ProfileAnalysis, StylePreferences } from '../types/v2';
+import { buildReportData, exportReportData } from '../vision/report-data';
+import { ProfileResult } from '../components/ProfileResult';
+import { RecommendationsPanel } from '../components/RecommendationsPanel';
+import { DEFAULT_PREFERENCES, recommendV2 } from '../recommendations/v2';
+import { ModuleBoundary } from '../components/ModuleBoundary';
+const GeometryExplorer = lazy(() => import('../components/GeometryExplorer'));
+const PDFExportControls = lazy(() => import('../report/PDFExportControls'));
+export function Report({
+  analysis,
+  profiles = [],
+}: {
+  analysis: AggregatedAnalysis | null;
+  profiles?: ProfileAnalysis[];
+}) {
   const [showScore, setShowScore] = useState(true);
+  const [preferences, setPreferences] = useState<StylePreferences>(DEFAULT_PREFERENCES);
+  const [explorer, setExplorer] = useState(false);
+  const [pdf, setPdf] = useState(false);
+  const recommendations = recommendV2(analysis, profiles, preferences);
+  const data = buildReportData(analysis, profiles, recommendations);
+  const exportReport = () => {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(exportReportData(data, showScore), null, 2)], {
+        type: 'application/json',
+      }),
+    );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'psl-lens-rapport.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  if (!analysis && !profiles.length)
+    return (
+      <FrontalReport
+        analysis={null}
+        showScore={showScore}
+        setShowScore={setShowScore}
+        onExport={exportReport}
+      />
+    );
+  return (
+    <>
+      {analysis ? (
+        <FrontalReport
+          analysis={analysis}
+          showScore={showScore}
+          setShowScore={setShowScore}
+          onExport={exportReport}
+        />
+      ) : (
+        <div className="workspace page-width profile-report-heading">
+          <div className="page-heading">
+            <div>
+              <span className="eyebrow">RAPPORT V2 · PROFIL</span>
+              <h1>Votre profil, en perspective.</h1>
+            </div>
+            <button className="button secondary" onClick={exportReport}>
+              Exporter les mesures
+            </button>
+          </div>
+          <label className="score-toggle">
+            <span>Afficher la notation esthétique</span>
+            <input
+              aria-label="Afficher la notation esthétique"
+              type="checkbox"
+              checked={showScore}
+              onChange={(e) => setShowScore(e.target.checked)}
+            />
+          </label>
+        </div>
+      )}
+      <div className="workspace page-width v2-report">
+        <section className="panel">
+          <span className="eyebrow">VUES RÉELLEMENT EXPLOITÉES</span>
+          <h2>Chaque vue garde sa provenance.</h2>
+          <ul>
+            {data.views.map((v) => (
+              <li key={v.id}>
+                {v.view} · {v.method === 'assisted' ? 'assistée' : 'automatique'} ·{' '}
+                {v.observationCount} observation(s) · {v.quality}
+                {v.pose ? ` · rotation observée ${v.pose.yaw.toFixed(0)}°` : ''}
+              </li>
+            ))}
+          </ul>
+          <p className="small muted">
+            Les obliques servent au contrôle de continuité; elles ne sont pas moyennées avec la face
+            ou le profil. Les côtés anatomiques des profils sont déclarés. Associez des vues de la
+            même personne; aucun contrôle d’identité n’est effectué.
+          </p>
+          <div className="profile-tools">
+            <Link className="button secondary" to="/profile">
+              Ajouter ou reprendre un profil
+            </Link>
+            <Link className="button secondary" to="/photo">
+              Analyser une face
+            </Link>
+            <Link className="button secondary" to="/advanced">
+              Advanced Scan
+            </Link>
+          </div>
+        </section>
+        {profiles.map((p) => (
+          <ProfileResult key={p.id} profile={p} />
+        ))}
+        {showScore && (
+          <section className="panel scoring-panel">
+            <span className="eyebrow">PSL MULTI-VUES EXPÉRIMENTAL /8</span>
+            <h2>
+              {data.multiview.score === null
+                ? 'Complétez les vues pour cette estimation'
+                : data.multiview.score.toFixed(2) + ' / 8'}
+            </h2>
+            <p>
+              Couverture : {Math.round(data.multiview.coverage * 100)} % · {data.multiview.version}{' '}
+              · fiabilité limitée
+            </p>
+            {data.multiview.profileSourceId && (
+              <p className="small">
+                Profil utilisé :{' '}
+                {profiles.find((p) => p.id === data.multiview.profileSourceId)?.side} ·{' '}
+                {profiles.find((p) => p.id === data.multiview.profileSourceId)?.createdAt}
+              </p>
+            )}
+            <details>
+              <summary>Voir la formule et les contributions</summary>
+              {data.multiview.categories.map((c) => (
+                <p key={c.id}>
+                  {c.name} : {c.score?.toFixed(2) ?? 'N/D'} /8 · poids {Math.round(c.weight * 100)}{' '}
+                  % · contribution {c.contribution?.toFixed(3) ?? 'N/D'}
+                  {c.inputs.map((i) => (
+                    <span key={i.id}>
+                      {' '}
+                      · cible {i.target}, tolérance {i.tolerance}, valeur {i.value.toFixed(3)}
+                    </span>
+                  ))}
+                </p>
+              ))}
+            </details>
+            <ul>
+              {data.multiview.reasons
+                .filter((r) => !analysis?.frontalScore.reasons.includes(r))
+                .map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+            </ul>
+            <p>{data.multiview.disclaimer}</p>
+          </section>
+        )}
+        <RecommendationsPanel
+          frontal={analysis}
+          profiles={profiles}
+          preferences={preferences}
+          onPreferencesChange={setPreferences}
+        />
+        {analysis && (
+          <section className="panel">
+            <span className="eyebrow">EXPLORATION FACULTATIVE</span>
+            <h2>Tournez autour de la géométrie estimée.</h2>
+            <p>
+              Représentation relative des prédictions, sans reconstruction anatomique ni dimensions
+              physiques. Le module se charge au premier usage.
+            </p>
+            <button className="button secondary" onClick={() => setExplorer(!explorer)}>
+              {explorer ? 'Fermer' : 'Ouvrir'} l’explorateur géométrique
+            </button>
+            {explorer && (
+              <ModuleBoundary>
+                <Suspense fallback={<p role="status">Chargement de la visualisation…</p>}>
+                  <GeometryExplorer result={analysis.representative} />
+                </Suspense>
+              </ModuleBoundary>
+            )}
+          </section>
+        )}
+        <section className="panel">
+          <span className="eyebrow">RAPPORT À EMPORTER</span>
+          <h2>Votre rapport PDF, généré ici.</h2>
+          <p>
+            Choisissez son contenu avant de le télécharger. Photos exclues par défaut; aucune image
+            envoyée.
+          </p>
+          <button className="button primary" onClick={() => setPdf(true)}>
+            Préparer le PDF
+          </button>
+          {pdf && (
+            <ModuleBoundary>
+              <Suspense fallback={<p role="status">Chargement du générateur PDF…</p>}>
+                <PDFExportControls data={data} allowScores={showScore} />
+              </Suspense>
+            </ModuleBoundary>
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+function FrontalReport({
+  analysis,
+  showScore,
+  setShowScore,
+  onExport,
+}: {
+  analysis: AggregatedAnalysis | null;
+  showScore: boolean;
+  setShowScore: (v: boolean) => void;
+  onExport: () => void;
+}) {
   const [region, setRegion] = useState<Region>('all');
   const [selectedId, setSelectedId] = useState<string>();
-  const [showPhoto, setShowPhoto] = useState(true);
+  const [showPhoto, setShowPhoto] = useState(false);
   if (!analysis)
     return (
       <div className="empty-report page-width">
@@ -46,32 +252,6 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
     : available.every((m) => m.confidence === 'moderate')
       ? 'Modérée'
       : 'Limitée';
-  const exportReport = () => {
-    // Deliberate user-triggered export: descriptive measures only, no landmarks or image.
-    const content = JSON.stringify(
-      {
-        createdAt: analysis.createdAt,
-        source: analysis.source,
-        observationCount: analysis.observationCount,
-        measurements: analysis.measurements,
-        ...(showScore ? { score: analysis.score, frontalScore: analysis.frontalScore } : {}),
-        scan: analysis.scan,
-        limitations: [
-          'Mesures 2D apparentes, sans dimensions physiques.',
-          'Profil non validé en V1.',
-        ],
-        disclaimer: DISCLAIMER,
-      },
-      null,
-      2,
-    );
-    const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'psl-lens-rapport.json';
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
   return (
     <div className="workspace page-width">
       <div className="page-heading">
@@ -92,12 +272,9 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
             })}
           </p>
         </div>
-        <button className="button secondary compact" onClick={exportReport}>
+        <button className="button secondary compact" onClick={onExport}>
           <Download size={16} />
           Exporter les mesures
-        </button>
-        <button className="button secondary compact print-action" onClick={() => window.print()}>
-          Imprimer / PDF
         </button>
       </div>
       <LocalNotice />
@@ -292,11 +469,8 @@ export function Report({ analysis }: { analysis: AggregatedAnalysis | null }) {
                 diagnostic ni mesure osseuse.
               </p>
               <p>
-                <strong>Indisponibles :</strong> projection du profil, dimensions physiques et
-                anatomie osseuse.
-                {analysis.profileProvided
-                  ? ' Le profil importé sert uniquement de contexte; aucune mesure n’en est tirée.'
-                  : ''}{' '}
+                <strong>Indisponibles :</strong> dimensions physiques et anatomie osseuse. Les
+                mesures latérales assistées apparaissent séparément plus bas.
                 {analysis.rejectedCount > 0
                   ? `${analysis.rejectedCount} observations non exploitables ont été écartées pendant l’acquisition.`
                   : ''}

@@ -13,18 +13,11 @@ ferme le worker et le moteur, libère les références React et supprime le rapp
 Comme pour toute application JavaScript, la collecte physique de mémoire est
 gérée par le navigateur; aucune garantie d’effacement bas niveau n’est formulée.
 
-Le fichier de profil facultatif est une prévisualisation en mémoire. L’export
-JSON est une action explicite qui écrit les mesures et éventuellement les
-scores et métadonnées du scan dans le dossier de téléchargement choisi. Il ne contient ni
-photographie ni coordonnées faciales.
+Les photos de profil et les points assistés sont gardés uniquement en mémoire. Une capture latérale Live est créée après clic explicite; aucune sélection automatique de frames n’enregistre d’image. Le rapport frontal Live conserve uniquement les repères.
 
-Le bouton « Imprimer / PDF » ouvre le dialogue local du navigateur. Le choix
-de destination, les sauvegardes et le spool d’impression relèvent du navigateur
-et du système. Une photo importée visible peut être incluse dans l’impression;
-la décocher pour l’exclure. Aucune capture Live représentative n’est conservée
-en V1.1 : le rapport Live montre uniquement les repères de l’observation retenue.
-Cette option secondaire est reportée; elle nécessiterait une action de
-consentement et un effacement en mémoire testés.
+Le JSON volontaire `psl-report-2.0.0` écrit mesures/provenances, profils sans images ni coordonnées brutes, vues et conseils. Les scores sont exclus lorsque la notation est masquée. Le PDF natif est généré localement avec pdf-lib chargé à la demande. Photos, scores et détails techniques sont décochés par défaut; les photos sont intégrées uniquement après sélection explicite. Le masquage global empêche l’inclusion des scores. Aucun choix ne persiste entre sessions. La photo de rapport est masquée par défaut.
+
+Les téléchargements déjà sauvegardés sont sous le contrôle du navigateur et du système; l’effacement de session ne supprime pas ces fichiers. Le PDF et le JSON ne sont jamais envoyés à un serveur. Voir [les exports V2](report-v2.md).
 
 ## Réseau
 

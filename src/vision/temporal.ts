@@ -52,6 +52,14 @@ export function aggregate(
       retention,
       reliabilityReason,
       samples: summary.samples,
+      provenance: {
+        view: 'front' as const,
+        method: 'automatic' as const,
+        algorithm: 'frontal-1.1.0',
+        source,
+        observations: summary.samples,
+        orientation: representative.detection.pose,
+      },
       confidence: reliabilityReason ? ('low' as const) : ('moderate' as const),
     };
   });
@@ -86,6 +94,29 @@ export function aggregate(
     createdAt: new Date().toISOString(),
     source,
     measurements,
+    views: (['front', 'left', 'right'] as const).flatMap((stage) => {
+      const group = valid.filter((o) => o.stage === stage);
+      if (!group.length) return [];
+      const o = group[Math.floor(group.length / 2)];
+      return [
+        {
+          id: `${stage}-${o.detection.timestamp}`,
+          view:
+            stage === 'front'
+              ? ('front' as const)
+              : stage === 'left'
+                ? ('oblique-left' as const)
+                : ('oblique-right' as const),
+          method: 'automatic' as const,
+          source,
+          observationCount: group.length,
+          pose: o.detection.pose,
+          quality: group.every((v) => v.quality.valid) ? 'exploitable' : 'à améliorer',
+          warnings: [...new Set(group.flatMap((v) => v.quality.issues))],
+          algorithm: stage === 'front' ? 'frontal-1.1.0' : 'continuity-1.1.0',
+        },
+      ];
+    }),
     score: score(measurements),
     frontalScore,
     scan,

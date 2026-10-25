@@ -2984,3 +2984,175 @@ progress::-moz-progress-bar {
 .capture-warning p {
   margin: 5px 0 0;
 }
+
+/* V2 profile editor and report use the existing palette and spacing. */
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 24px;
+}
+.profile-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.profile-tools .button,
+.profile-point-list .button,
+.profile-controls input,
+.profile-controls select {
+  min-height: 44px;
+}
+.profile-tools label {
+  display: grid;
+  gap: 6px;
+  min-width: 130px;
+}
+.profile-editor {
+  display: block;
+  width: 100%;
+  max-height: 76vh;
+  background: #07131c;
+  touch-action: none;
+  cursor: crosshair;
+  border-radius: 10px;
+  user-select: none;
+}
+.profile-editor-panel {
+  min-width: 0;
+  padding: 16px;
+}
+.profile-point-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 20px 0;
+}
+.profile-point-list .button {
+  width: 100%;
+  padding: 10px;
+  font-size: 11px;
+  white-space: normal;
+  text-align: left;
+  justify-content: flex-start;
+}
+.profile-point-list [aria-pressed='true'] {
+  border-color: #50dac8;
+  color: #50dac8;
+}
+.profile-coordinates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.profile-coordinates label {
+  display: grid;
+  gap: 8px;
+}
+.profile-coordinates input {
+  width: 100%;
+  min-width: 0;
+  background: #0b1822;
+  color: #fff;
+  border: 1px solid #31434f;
+  border-radius: 8px;
+  padding: 8px;
+}
+.profile-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 24px 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.profile-confirm input {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+.profile-report-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 24px;
+  margin: 24px 0;
+  align-items: start;
+}
+.profile-diagram {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  background: #0b1822;
+  border-radius: 10px;
+  overflow: visible;
+}
+.v2-report {
+  padding-top: 0;
+  display: grid;
+  gap: 24px;
+}
+.v2-report li {
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.v2-report details {
+  margin: 8px 0;
+}
+.recommendations-panel fieldset {
+  min-width: 0;
+}
+.profile-result .measurement-grid {
+  grid-template-columns: 1fr 1fr;
+}
+.advanced-intro {
+  margin-bottom: 24px;
+}
+@media (max-width: 760px) {
+  .profile-grid,
+  .profile-report-layout {
+    grid-template-columns: 1fr;
+  }
+  .profile-editor {
+    max-height: 65vh;
+  }
+  .profile-controls {
+    padding: 20px;
+  }
+  .profile-result .measurement-grid {
+    grid-template-columns: 1fr;
+  }
+  .v2-report {
+    gap: 16px;
+  }
+  .profile-tools > .button {
+    flex: 1;
+    white-space: normal;
+  }
+  .profile-confirm {
+    font-size: 12px;
+  }
+  .main-nav {
+    gap: 18px;
+  }
+}
+@media print {
+  .profile-tools,
+  .profile-controls,
+  .pdf-export-controls {
+    display: none;
+  }
+  .profile-result {
+    break-inside: avoid;
+  }
+}
+.profile-report-heading {
+  min-height: 0;
+  padding-bottom: 28px;
+}

@@ -150,3 +150,9 @@ expression non neutre et update PWA après fermeture des anciens onglets.
 
 La grille détaillée et son statut sont dans [la checklist physique](mobile-checklist.md).
 Le bilan chiffré des validations V1.1 est dans [le suivi](v1.1-progress.md).
+
+## Vérification V2
+
+`npm run validate:profile` évalue la fixture publique annotée et une sensibilité synthétique explicite. Un chemin JSON permet d’évaluer un jeu volontaire/licencié selon le schéma documenté dans [validation-v2.md](validation-v2.md). Aucun résultat de répétabilité clinique ou de beauté ne découle de cette infrastructure.
+
+Les tests V2 couvrent transformations de similitude, rapport d’aspect, miroir, points manquants/dégénérés, formule multi-vues et contributions, recommandations et préférences, projection interactive et fallback2D, ouverture du PDF, contenu/options/accents, image exclue par défaut et incluse seulement après sélection, téléchargement réel depuis un profil public, combinaison face/profil et capture Advanced. Les requêtes distantes restent surveillées. Résultats et limites de matériel dans [v2-progress.md](v2-progress.md).

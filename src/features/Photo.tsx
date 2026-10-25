@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, ArrowRight, ImagePlus, Check, RotateCcw } from 'lucide-react';
 import type { AggregatedAnalysis, CaptureQuality, FaceDetectionResult, Region } from '../types';
+import type { ProfilePhoto } from './Profile';
 import { decodePhoto } from '../vision/photo';
 import { visionClient } from '../vision/client';
 import { assessQuality } from '../vision/quality';
@@ -11,9 +12,14 @@ import { Mesh, type Layer } from '../components/Mesh';
 import { LayerControls, Loading, LocalNotice } from '../components/Controls';
 import { isVisionCancellation } from '../vision/cancellation';
 
-export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void }) {
+export function Photo({
+  onReport,
+  onProfile,
+}: {
+  onReport: (r: AggregatedAnalysis) => void;
+  onProfile: (photo: ProfilePhoto, frontal?: AggregatedAnalysis) => void;
+}) {
   const [preview, setPreview] = useState('');
-  const [profile, setProfile] = useState('');
   const [result, setResult] = useState<FaceDetectionResult | null>(null);
   const [quality, setQuality] = useState<CaptureQuality | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,7 +57,34 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
       bitmap = decoded.bitmap;
       if (token !== generation.current) return;
       if (isProfile) {
-        setProfile(decoded.preview);
+        const frontal =
+          result &&
+          quality &&
+          measure(result, quality, { allowApproximate: true }).some((m) => m.value !== null)
+            ? {
+                ...aggregate(
+                  [
+                    {
+                      detection: result,
+                      quality,
+                      measurements: measure(result, quality, { allowApproximate: true }),
+                      stage: 'front',
+                    },
+                  ],
+                  'photo',
+                ),
+                preview,
+              }
+            : undefined;
+        onProfile(
+          {
+            preview: decoded.preview,
+            width: bitmap.width,
+            height: bitmap.height,
+            source: 'import',
+          },
+          frontal,
+        );
         return;
       }
       setPreview(decoded.preview);
@@ -101,12 +134,11 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
       ],
       'photo',
     );
-    onReport({ ...analysis, preview, profileProvided: Boolean(profile) });
+    onReport({ ...analysis, preview });
   };
   const reset = () => {
     generation.current++;
     setPreview('');
-    setProfile('');
     setResult(null);
     setQuality(null);
     setError('');
@@ -275,21 +307,14 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
           </section>
           <section className="panel profile-panel">
             <span className="eyebrow">OPTIONNEL / VUE DE PROFIL</span>
-            <h3>Gardez une vue de contexte.</h3>
+            <h3>Mesurez un vrai profil.</h3>
             <p className="small muted">
-              Vous pouvez importer un profil. La V1 ne mesure pas sa projection et ne l’utilise pas
-              pour le score.
+              Placement assisté des repères visibles, puis mesures latérales dans le même rapport.
+              Si la face est prête, elle est conservée.
             </p>
-            {profile && (
-              <img
-                className="profile-preview"
-                src={profile}
-                alt="Profil facultatif conservé en mémoire"
-              />
-            )}
             <label className="button secondary full">
               <ImagePlus size={16} />
-              {profile ? 'Changer le profil' : 'Ajouter un profil'}
+              Ajouter un profil
               <input
                 aria-label="Photo de profil facultative"
                 type="file"
@@ -301,11 +326,9 @@ export function Photo({ onReport }: { onReport: (r: AggregatedAnalysis) => void 
                 }}
               />
             </label>
-            {profile && (
-              <button className="text-link" onClick={() => setProfile('')}>
-                Retirer le profil
-              </button>
-            )}
+            <Link className="text-link" to="/profile">
+              Analyser un profil seul
+            </Link>
           </section>
           <button className="button primary full" disabled={busy || !canReport} onClick={report}>
             Découvrir mon rapport

@@ -1,4 +1,4 @@
-# PSL Lens V1.1
+# PSL Lens V2
 
 **Live Facial Analysis · See your face differently.**
 
@@ -29,8 +29,7 @@ Lucide et `@mediapipe/tasks-vision`. Les versions exactes sont verrouillées dan
 - **Photo** : importer ou déposer un JPG, PNG ou WebP. Un seul visage adulte,
   frontal, bien éclairé, sans filtre. Minimum 256 px sur chaque axe, maximum
   20 Mo et 48 MP. Le navigateur applique l’orientation EXIF, puis l’image est
-  réduite à 1 600 px maximum pour le traitement. Une photo de profil facultative
-  peut être prévisualisée; elle ne produit aucune mesure non validée.
+  réduite à 1 600 px maximum pour le traitement. Un profil importé ouvre le placement assisté et conserve la face prête dans le rapport.
 - **Live** : cliquer sur « Activer la caméra ». Autoriser la caméra, jamais le
   microphone. Choisir le périphérique, activer/désactiver le miroir, changer de
   couche et sélectionner une région. Pause suspend l’inférence; Arrêter coupe
@@ -46,8 +45,11 @@ Lucide et `@mediapipe/tasks-vision`. Les versions exactes sont verrouillées dan
 - **Rapport** : explorer les régions, ouvrir une mesure pour consulter sa
   formule, les indices, la construction géométrique, les effectifs, la rétention
   et la dispersion. Masquer la notation esthétique, exporter les mesures JSON
-  ou imprimer/enregistrer en PDF via le navigateur. Aucun export automatique.
-  Le JSON volontaire ne contient ni photographie ni landmarks.
+  ou télécharger un vrai PDF généré localement avec sélection du contenu. Aucun export automatique.
+  Le JSON versionné volontaire ne contient ni photographie ni coordonnées brutes.
+- **Profile Analyzer** : photo latérale, 5 repères nécessaires et 3 facultatifs, zoom/pan, glisser, coordonnées précises, annulation. Confirmer explicitement la vue et le placement. Jusqu’à 7 mesures 2D, toujours de fiabilité limitée. Le côté anatomique est déclaré; le sens dans l’image est calculé séparément.
+- **Advanced Scan** : face et obliques automatiques, puis capture latérale volontaire ou import. L’éditeur assisté reste utilisable lorsque MediaPipe perd le suivi à 90°. Les vues restent séparées, sans reconstruction métrique.
+- **Rapport V2** : profil seul ou face + profils, estimation multi-vues distincte si calculable, conseils selon préférences déclarées, explorateur géométrique facultatif. Le PDF exclut photos, scores et détails techniques par défaut.
 - **Effacer la session** : l’icône corbeille libère les résultats et le moteur,
   arrête le studio actif et remet les vues à zéro. Le rechargement efface aussi
   les données de session.
@@ -67,9 +69,7 @@ Aucune valeur manquante n’est inventée. Une photo unique reste limitée;
 les séries stabilisées peuvent atteindre une fiabilité modérée.
 Voir [le protocole et les formules](docs/scoring.md).
 
-Le protocole historique `psl-heuristic-1.0.0` reste séparé. **PSL complet :
-indisponible**, car la projection du profil n’est pas validée. Aucun poids
-manquant n’est silencieusement redistribué.
+Le protocole historique `psl-heuristic-1.0.0` reste séparé et incomplet. La V2 ajoute **`psl-multiview-2.0.0`** : 70 % frontal, 30 % constructions latérales assistées, cibles subjectives et couverture explicite. Il nécessite un frontal et un profil exploitable. Les côtés ne sont pas moyennés. Voir [la formule et les conditions](docs/multiview.md).
 
 > Experimental PSL estimate — not a scientific beauty rating.
 
@@ -86,6 +86,7 @@ npm run test:compat
 npm run test:pwa
 npm run test:pwa-update
 npm run test:performance
+npm run validate:profile
 npm run build
 npm run format:check
 npm run preview
@@ -112,15 +113,15 @@ sont mis en cache progressivement pendant leur utilisation. L’indicateur
 « Analyse hors connexion prête » confirme leur présence dans le cache; la
 première visite exige une connexion. Les fichiers du moteur ont des chemins
 immuables par empreinte. Tailles et contraintes de mise à jour :
-[audit PWA](docs/pwa-v1.1.md).
+[cache des modules V2](docs/pwa-v2.md).
 
 La CI GitHub Actions vérifie le code, Chromium, les mises à jour PWA et les
 moteurs Firefox/WebKit, sans déploiement automatique.
 
 ## Limites connues
 
-- Profil à 90°, projection nasale/mentonnière et mesures osseuses indisponibles.
-- Le score frontal est une heuristique subjective. Le score complet reste absent.
+- Profil strict : placement assisté, sans validation automatique de l’angle de prise de vue. Mesures cutanées 2D; mesures osseuses et dimensions physiques indisponibles.
+- Scores frontal et multi-vues : heuristiques subjectives, sans validation scientifique de beauté. Le protocole historique complet reste absent.
 - Pose approximative, sensibles à la perspective, l’expression, aux lunettes,
   cheveux et occlusions. Les occlusions ne sont pas toutes détectables.
 - Seuils de qualité empiriques, sans calibration démographique ou clinique.
@@ -136,6 +137,13 @@ moteurs Firefox/WebKit, sans déploiement automatique.
   d’enregistrer des données de personnes privées lors des validations manuelles.
 
 ## Documentation
+
+- [Bilan et validation V2](docs/v2-progress.md)
+- [Profil assisté, repères et formules](docs/profile-analysis.md)
+- [Évaluation reproductible et limites](docs/validation-v2.md)
+- [PDF et confidentialité des exports](docs/report-v2.md)
+- [Recommandations et préférences](docs/recommendations-v2.md)
+- [Géométrie interactive](docs/geometry-explorer.md)
 
 - [Architecture](docs/architecture.md)
 - [Mesures, formules et indices](docs/measurements.md)

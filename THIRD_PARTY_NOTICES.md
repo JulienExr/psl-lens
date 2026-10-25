@@ -35,3 +35,8 @@ demo result or a rating of the pictured person.
 The unit and guided-scan fixtures are synthetic coordinates explicitly isolated
 under `tests/`. No production source imports them. Icons and app design are
 created for this project.
+
+## V2 — PDF et photographie latérale
+
+- `pdf-lib` 1.17.1 : licence MIT, https://github.com/Hopding/pdf-lib. Génération locale, polices PDF standard Helvetica/Helvetica Bold, sans téléchargement de police.
+- `tests/fixtures/capone-profile.jpg` : Federal Bureau of Prisons, 1934, œuvre du gouvernement fédéral américain, domaine public aux États-Unis (US DOJ). Source vérifiée : https://commons.wikimedia.org/wiki/File:Al-Capone-Alcatraz-mug-shot-side.jpg ; original https://upload.wikimedia.org/wikipedia/commons/4/4b/Al-Capone-Alcatraz-mug-shot-side.jpg . Image historique utilisée uniquement pour les tests, jamais montrée comme résultat de l’utilisateur. Angle exact inconnu. Annotation manuelle illustrative dans `tests/fixtures/annotations/`, sans vérité anatomique expertisée.

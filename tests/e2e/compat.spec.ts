@@ -24,3 +24,26 @@ test('real local photo inference and report on an alternate browser engine', asy
   await page.getByRole('button', { name: 'Effacer la session' }).click();
   await expect(page.getByText('Votre rapport commence ici.')).toBeVisible();
 });
+
+test('assisted real profile and native PDF on alternate engines', async ({ page }) => {
+  await page.goto('/profile');
+  await page
+    .getByLabel('Importer une photo de profil', { exact: true })
+    .setInputFiles(path.resolve('tests/fixtures/capone-profile.jpg'));
+  const { placeReferenceProfile } = await import('./profile-helpers');
+  await placeReferenceProfile(page);
+  await expect(page.locator('.profile-result .measurement-card')).toHaveCount(7);
+  await page.getByRole('button', { name: 'Préparer le PDF' }).click();
+  await expect(
+    page.getByRole('checkbox', { name: 'Inclure les photos locales' }),
+  ).not.toBeChecked();
+  const event = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Télécharger le PDF' }).click();
+  const file = await event;
+  expect(file.suggestedFilename()).toBe('psl-lens-rapport.pdf');
+  const stream = await file.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const { PDFDocument } = await import('pdf-lib');
+  expect((await PDFDocument.load(Buffer.concat(chunks))).getPageCount()).toBeGreaterThan(1);
+});

@@ -365,3 +365,117 @@ test('asset preparation removes unused variants and versions worker with its res
   expect(changed).toHaveLength(1);
   expect(changed).not.toEqual(revisions);
 });
+
+test('manifest keeps advanced chunks progressive while the frontal fallback installs offline', async ({
+  page,
+  context,
+}) => {
+  const directory = path.join(activeBuild, 'dist');
+  const assets: Record<string, string> = {
+    'assets/shared-12345678.js': 'export const shared = true;',
+    'assets/shell-12345678.css': 'body { color: black; }',
+    'assets/engine-12345678.js': 'export const frontalFallback = true;',
+    'assets/advanced-12345678.js':
+      "import { value } from './advanced-support-12345678.js'; export default value;",
+    'assets/advanced-support-12345678.js': "export const value = 'advanced module ready';",
+    'assets/advanced-12345678.css': 'body { --advanced: 1; }',
+    'assets/unused-12345678.js': 'export const unused = true;',
+    '.vite/manifest.json': JSON.stringify({
+      'index.html': {
+        file: 'shell.js',
+        isEntry: true,
+        imports: ['_shared.js'],
+        css: ['assets/shell-12345678.css'],
+        dynamicImports: ['src/advanced.ts', 'src/unused.ts', 'src/vision/engine.ts'],
+      },
+      '_shared.js': { file: 'assets/shared-12345678.js' },
+      'src/vision/engine.ts': {
+        file: 'assets/engine-12345678.js',
+        src: 'src/vision/engine.ts',
+        isDynamicEntry: true,
+        imports: ['_shared.js'],
+      },
+      'src/advanced.ts': {
+        file: 'assets/advanced-12345678.js',
+        isDynamicEntry: true,
+        imports: ['_advanced-support.js'],
+        css: ['assets/advanced-12345678.css'],
+      },
+      '_advanced-support.js': { file: 'assets/advanced-support-12345678.js' },
+      'src/unused.ts': { file: 'assets/unused-12345678.js', isDynamicEntry: true },
+    }),
+  };
+  for (const [file, content] of Object.entries(assets)) {
+    await mkdir(path.dirname(path.join(directory, file)), { recursive: true });
+    await writeFile(path.join(directory, file), content);
+  }
+  await exec(process.execPath, [generator], { cwd: activeBuild });
+  // These online resources were never part of the immutable build allowlist.
+  await writeFile(path.join(directory, 'private-photo.jpg'), 'private user image');
+  await writeFile(path.join(directory, 'assets/unknown-user-12345678.js'), 'private user data');
+  blocked.add('/assets/advanced-12345678.js');
+  await controlled(page);
+  const stored = () =>
+    page.evaluate(async () =>
+      (
+        await Promise.all(
+          (await caches.keys()).map(async (key) =>
+            (await (await caches.open(key)).keys()).map((request) => new URL(request.url).pathname),
+          ),
+        )
+      ).flat(),
+    );
+  const installed = await stored();
+  expect(installed).toEqual(
+    expect.arrayContaining([
+      '/index.html',
+      '/shell.js',
+      '/assets/shared-12345678.js',
+      '/assets/shell-12345678.css',
+      '/assets/engine-12345678.js',
+    ]),
+  );
+  expect(installed.some((url) => /advanced|unused/.test(url))).toBe(false);
+  expect(requests.some((url) => /advanced|unused/.test(url))).toBe(false);
+  expect(requests.some((url) => url.startsWith('/vision/'))).toBe(false);
+
+  blocked.clear();
+  expect(
+    await page.evaluate(async (url) => (await import(url)).default, '/assets/advanced-12345678.js'),
+  ).toBe('advanced module ready');
+  expect(await page.evaluate(async () => (await fetch('/assets/advanced-12345678.css')).ok)).toBe(
+    true,
+  );
+  await page.evaluate(async () => {
+    await fetch('/private-photo.jpg');
+    await fetch('/assets/unknown-user-12345678.js');
+    await fetch('/assets/unused-12345678.js?private=image');
+    await fetch('/assets/unused-12345678.js', { method: 'POST', body: 'private' });
+  });
+  const warmed = await stored();
+  expect(warmed).toEqual(
+    expect.arrayContaining([
+      '/assets/advanced-12345678.js',
+      '/assets/advanced-support-12345678.js',
+      '/assets/advanced-12345678.css',
+    ]),
+  );
+  expect(warmed).not.toContain('/private-photo.jpg');
+  expect(warmed).not.toContain('/assets/unknown-user-12345678.js');
+  expect(warmed).not.toContain('/assets/unused-12345678.js');
+  await context.setOffline(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Shell a' })).toBeVisible();
+  expect(
+    await page.evaluate(async (url) => (await import(url)).default, '/assets/advanced-12345678.js'),
+  ).toBe('advanced module ready');
+  expect(
+    await page.evaluate(async () => (await fetch('/assets/advanced-12345678.css')).text()),
+  ).toContain('--advanced: 1');
+  expect(
+    await page.evaluate(
+      async (url) => (await import(url)).frontalFallback,
+      '/assets/engine-12345678.js',
+    ),
+  ).toBe(true);
+});
